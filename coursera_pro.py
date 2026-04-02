@@ -14,6 +14,24 @@ from urllib.parse import urlparse
 # 1. SAHIFA SOZLAMALARI VA DIZAYN
 # ==========================================
 st.set_page_config(page_title="Coursera Verifier Pro", layout="wide", page_icon="🎓")
+st.markdown("""
+<style>
+/* GitHub Fork tugmasi */
+.viewerBadge_container__1QSob { display: none !important; }
+
+/* Yuqori panel (header) */
+header { visibility: hidden; }
+
+/* Footer (Streamlitniki) */
+footer { visibility: hidden; }
+
+/* Menu (⋮) */
+#MainMenu { visibility: hidden; }
+
+/* Toolbar */
+[data-testid="stToolbar"] { display: none !important; }
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("""
     <style>
