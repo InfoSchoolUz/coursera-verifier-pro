@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests.adapters import HTTPAdapter
@@ -14,6 +15,36 @@ from urllib.parse import urlparse
 # 1. SAHIFA SOZLAMALARI VA DIZAYN
 # ==========================================
 st.set_page_config(page_title="Coursera Verifier Pro", layout="wide", page_icon="🎓")
+
+# ==========================================
+# GOOGLE ANALYTICS
+# ==========================================
+GA_ID = "G-V7203W6DPT"
+
+components.html(f"""
+<!DOCTYPE html>
+<html>
+<head>
+<script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){{dataLayer.push(arguments);}}
+gtag('js', new Date());
+gtag('config', '{GA_ID}');
+</script>
+</head>
+<body></body>
+</html>
+""", height=0)
+
+components.html("""
+<script>
+gtag('event', 'app_opened', {
+  'event_category': 'engagement',
+  'event_label': 'user_opened_app'
+});
+</script>
+""", height=0)
 
 st.markdown("""
     <style>
@@ -186,21 +217,21 @@ def main():
 
     st.subheader("Maktab o'quvchilari sertifikatlarini avtomatik tekshirish tizimi")
     file = st.file_uploader(
-    "Excel (.xlsx) yoki CSV faylni yuklang",
-    type=["xlsx", "csv"],
-    help="""
-    Fayl quyidagi ustunlarda bo‘lishi kerak:
+        "Excel (.xlsx) yoki CSV faylni yuklang",
+        type=["xlsx", "csv"],
+        help="""
+        Fayl quyidagi ustunlarda bo‘lishi kerak:
 
-    • №  
-    • Tuman/Shahar  
-    • Maktab raqami  
-    • Sinf  
-    • F.I.SH  
-    • Guvohnoma seriyasi va raqami  
-    • Tug‘ilgan sana  
-    • Sertifikat havolasi  
-    • Elektron pochta
-    """
+        • №  
+        • Tuman/Shahar  
+        • Maktab raqami  
+        • Sinf  
+        • F.I.SH  
+        • Guvohnoma seriyasi va raqami  
+        • Tug‘ilgan sana  
+        • Sertifikat havolasi  
+        • Elektron pochta
+        """
     )
 
     if file:
