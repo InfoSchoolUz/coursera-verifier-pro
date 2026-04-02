@@ -16,22 +16,171 @@ from urllib.parse import urlparse
 st.set_page_config(page_title="Coursera Verifier Pro", layout="wide", page_icon="🎓")
 
 st.markdown("""
-    <style>
-    .reportview-container { background: #f0f2f6; }
-    .stDataFrame { border: 1px solid #e6e9ef; border-radius: 10px; }
+<style>
+    /* Global */
+    .stApp {
+        background:
+            radial-gradient(circle at top left, rgba(0, 255, 255, 0.12), transparent 28%),
+            radial-gradient(circle at top right, rgba(255, 0, 204, 0.12), transparent 25%),
+            linear-gradient(135deg, #050816 0%, #090d1f 45%, #04060f 100%);
+        color: #ecf7ff;
+    }
+
+    [data-testid="stHeader"] {
+        background: rgba(0, 0, 0, 0);
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, rgba(8, 12, 28, 0.98) 0%, rgba(12, 18, 38, 0.96) 100%);
+        border-right: 1px solid rgba(0, 255, 255, 0.18);
+        box-shadow: 0 0 25px rgba(0, 255, 255, 0.08);
+    }
+
+    /* Main headings */
+    h1, h2, h3 {
+        color: #f5fbff !important;
+        text-shadow: 0 0 8px rgba(0, 255, 255, 0.22);
+    }
+
+    .neon-title {
+        padding: 20px 24px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(0,255,255,0.12), rgba(255,0,204,0.10));
+        border: 1px solid rgba(0,255,255,0.22);
+        box-shadow:
+            0 0 18px rgba(0,255,255,0.12),
+            0 0 32px rgba(255,0,204,0.08),
+            inset 0 0 14px rgba(255,255,255,0.03);
+        margin-bottom: 16px;
+    }
+
+    .neon-subtitle {
+        font-size: 1.02rem;
+        color: #bfeeff;
+        margin-top: 6px;
+    }
+
+    /* Cards / alerts */
+    .stAlert, div[data-baseweb="notification"] {
+        background: rgba(11, 20, 40, 0.82) !important;
+        color: #e8faff !important;
+        border: 1px solid rgba(0, 255, 255, 0.18) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 0 18px rgba(0, 255, 255, 0.08);
+    }
+
+    /* Inputs */
+    .stTextInput > div > div,
+    .stNumberInput > div > div,
+    .stSelectbox > div > div,
+    .stMultiSelect > div > div,
+    .stTextArea textarea,
+    .stFileUploader,
+    div[data-baseweb="select"] > div,
+    div[data-testid="stFileUploaderDropzone"] {
+        background: rgba(12, 20, 38, 0.88) !important;
+        color: #ecf7ff !important;
+        border: 1px solid rgba(0, 255, 255, 0.22) !important;
+        border-radius: 14px !important;
+        box-shadow: 0 0 12px rgba(0, 255, 255, 0.08);
+    }
+
+    label, .stMarkdown, .stCaption, .st-emotion-cache-10trblm, .st-emotion-cache-16idsys {
+        color: #d7f7ff !important;
+    }
+
+    /* Buttons */
+    .stButton > button,
+    .stDownloadButton > button {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid rgba(0, 255, 255, 0.4);
+        background: linear-gradient(90deg, rgba(0,255,255,0.18), rgba(255,0,204,0.18));
+        color: #f8fdff;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        box-shadow:
+            0 0 14px rgba(0,255,255,0.18),
+            0 0 20px rgba(255,0,204,0.10);
+        transition: all 0.2s ease-in-out;
+    }
+
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(255, 0, 204, 0.5);
+        box-shadow:
+            0 0 20px rgba(0,255,255,0.25),
+            0 0 24px rgba(255,0,204,0.16);
+    }
+
+    /* Slider */
+    .stSlider [data-baseweb="slider"] > div div {
+        background-color: #00f7ff !important;
+    }
+
+    /* Metric cards */
+    div[data-testid="metric-container"] {
+        background: linear-gradient(180deg, rgba(10,18,36,0.92), rgba(8,14,28,0.94));
+        border: 1px solid rgba(0,255,255,0.18);
+        padding: 16px 14px;
+        border-radius: 18px;
+        box-shadow:
+            0 0 16px rgba(0,255,255,0.08),
+            inset 0 0 12px rgba(255,255,255,0.02);
+    }
+
+    div[data-testid="metric-container"] label,
+    div[data-testid="metric-container"] div {
+        color: #effcff !important;
+    }
+
+    /* DataFrame */
+    .stDataFrame {
+        border: 1px solid rgba(0,255,255,0.2);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 0 18px rgba(0,255,255,0.08);
+    }
+
+    /* Progress */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #00f7ff, #ff00cc) !important;
+    }
+
+    /* Divider */
+    hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(0,255,255,0.45), transparent);
+    }
+
+    /* Footer */
     .footer {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100%;
-        background-color: #0e1117;
-        color: white;
+        background: rgba(4, 8, 18, 0.88);
+        color: #c9f8ff;
         text-align: center;
         padding: 10px;
-        font-weight: bold;
+        font-weight: 700;
+        border-top: 1px solid rgba(0, 255, 255, 0.2);
+        box-shadow: 0 -4px 20px rgba(0,255,255,0.08);
+        backdrop-filter: blur(8px);
         z-index: 1000;
     }
-    </style>
+
+    a {
+        color: #71f7ff !important;
+        text-decoration: none !important;
+    }
+
+    a:hover {
+        color: #ff75de !important;
+    }
+</style>
 """, unsafe_allow_html=True)
 
 # ==========================================
@@ -157,7 +306,15 @@ def verify_link(session, url, timeout):
 # 6. ASOSIY ILOVA
 # ==========================================
 def main():
-    st.title("🎓 Coursera Certificate Verifier Pro")
+    st.markdown(
+        """
+        <div class="neon-title">
+            <h1 style="margin:0;">🎓 Coursera Certificate Verifier Pro</h1>
+            <div class="neon-subtitle">Neon UI • Zamonaviy ko‘rinish • Bir oz cyberpunk, lekin ish baribir jiddiy 😎</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     with st.sidebar:
         st.markdown("### 🛠 Dastur haqida")
@@ -186,21 +343,21 @@ def main():
 
     st.subheader("Maktab o'quvchilari sertifikatlarini avtomatik tekshirish tizimi")
     file = st.file_uploader(
-    "Excel (.xlsx) yoki CSV faylni yuklang",
-    type=["xlsx", "csv"],
-    help="""
-    Fayl quyidagi ustunlarda bo‘lishi kerak:
+        "Excel (.xlsx) yoki CSV faylni yuklang",
+        type=["xlsx", "csv"],
+        help="""
+        Fayl quyidagi ustunlarda bo‘lishi kerak:
 
-    • №  
-    • Tuman/Shahar  
-    • Maktab raqami  
-    • Sinf  
-    • F.I.SH  
-    • Guvohnoma seriyasi va raqami  
-    • Tug‘ilgan sana  
-    • Sertifikat havolasi  
-    • Elektron pochta
-    """
+        • №  
+        • Tuman/Shahar  
+        • Maktab raqami  
+        • Sinf  
+        • F.I.SH  
+        • Guvohnoma seriyasi va raqami  
+        • Tug‘ilgan sana  
+        • Sertifikat havolasi  
+        • Elektron pochta
+        """
     )
 
     if file:
@@ -268,7 +425,6 @@ def main():
                 unique_code_to_url = {}
                 unique_fallback_to_url = {}
 
-                # Faqat tanlangan sheetdan linklarni yig'ish
                 for sheet_info in prepared_sheets:
                     sheet_name = sheet_info["sheet_name"]
                     df = sheet_info["df"]
@@ -399,42 +555,7 @@ def main():
                 display_df = res_df.drop(columns=["__sheet_name__"])
                 st.dataframe(
                     display_df.style.map(
-                        lambda x: 'background-color: #d4edda' if x == 'MAVJUD'
-                        else 'background-color: #f8d7da' if x == 'XATO'
-                        else 'background-color: #fff3cd' if x == 'MAVJUD EMAS'
-                        else 'background-color: #cce5ff',
-                        subset=["Holati"]
-                    ),
-                    use_container_width=True
-                )
-
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    # Faqat tanlangan list uchun hisobot
-                    for sheet_name in res_df["__sheet_name__"].dropna().unique():
-                        sheet_df = res_df[res_df["__sheet_name__"] == sheet_name].drop(columns=["__sheet_name__"])
-                        if not sheet_df.empty:
-                            safe_sheet_name = str(sheet_name)[:31]
-                            sheet_df.to_excel(writer, index=False, sheet_name=safe_sheet_name)
-
-                download_filename = f"{base_name}_Verify.xlsx"
-
-                st.download_button(
-                    label="📥 Excelni yuklab olish",
-                    data=output.getvalue(),
-                    file_name=download_filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-
-        except Exception as e:
-            st.error(f"Xatolik: {e}")
-
-    st.markdown("""
-        <div class="footer">
-            Tuzuvchi: Azamat Madrimov | 2026
-        </div>
-        """, unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
+                        lambda x: 'background-color: #0e3b4b; color: #d8fbff;' if x == 'MAVJUD'
+                        else 'background-color: #4a1030; color: #ffe3f3;' if x == 'XATO'
+                        else 'background-color: #4b3b0e; color: #fff6d8;' if x == 'MAVJUD EMAS'
+                        else 'background-color: #18294f; color
