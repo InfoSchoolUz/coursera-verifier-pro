@@ -1,24 +1,25 @@
-# 🎓 Coursera Sertifikat Tekshiruvchi (Verifier Pro)
+# 🎓 Coursera Sertifikat Tekshiruvchi Pro
 
-Excel fayllar orqali Coursera sertifikatlarini avtomatik tekshiruvchi tizim.
-
----
-
-## 🚀 Imkoniyatlar
-
-* ✅ Coursera sertifikat linklarini ommaviy tekshirish
-* 📊 Excel formatida hisobot chiqarish
-* 📅 Sertifikat olingan sanani aniqlash
-* 🔁 Takrorlanuvchi sertifikatlarni aniqlash
-* 📂 Excel ichidagi bir nechta listlarni qo‘llab-quvvatlash
-* 🎯 Bitta listni tanlab tekshirish imkoniyati
-* ⚡ Tez ishlash (parallel tekshiruv)
+Excel fayllar orqali Coursera sertifikatlarini avtomatik tekshiruvchi va hisobot shakllantiruvchi tizim.
 
 ---
 
 ## 🌐 Onlayn demo
 
 👉 https://coursera-verifier.streamlit.app/
+
+---
+
+## 🚀 Asosiy imkoniyatlar
+
+* ✅ Coursera sertifikat linklarini avtomatik tekshirish
+* 📊 Excel formatida professional hisobot chiqarish
+* 📅 Sertifikat olingan sanani aniqlash
+* 🔁 Takrorlanuvchi sertifikatlarni aniqlash
+* 📂 Excel ichidagi bir nechta listlarni qo‘llab-quvvatlash
+* 🎯 Faqat bitta listni tanlab tekshirish imkoniyati
+* ⚡ Parallel (tezkor) tekshiruv tizimi
+* 📥 Natijani avtomatik yuklab olish (`_Verify.xlsx`)
 
 ---
 
@@ -31,26 +32,55 @@ Excel fayllar orqali Coursera sertifikatlarini avtomatik tekshiruvchi tizim.
 
 ### 2. List tanlash
 
-* Qaysi listni tekshirishni tanlaysiz
+* Tekshiriladigan list tanlanadi
 
 ### 3. Tekshirishni boshlash
 
-* **"TEKSHIRISHNI BOSHLASH"** tugmasini bosing
+* **"TEKSHIRISHNI BOSHLASH"** tugmasi bosiladi
 
 ### 4. Natijani yuklab olish
 
-* Fayl quyidagi nom bilan yuklanadi:
+* Hisobot quyidagi nom bilan yuklanadi:
 
-```id="l3k9zp"
+```
 fayl_nomi_Verify.xlsx
 ```
 
 ---
 
+## 📌 Excel fayl talablari (MAJBURIY)
+
+Yuklanadigan Excel fayl quyidagi ustunlarga ega bo‘lishi shart:
+
+| № | Ustun nomi                |
+| - | ------------------------- |
+| 1 | №                         |
+| 2 | Туман шаҳар номи          |
+| 3 | Мактаб рақами             |
+| 4 | Синфи                     |
+| 5 | Ўқувчининг ФИШ            |
+| 6 | Гувоҳнома серия ва рақами |
+| 7 | Туғилган куни             |
+| 8 | Сертификат ҳаволаси       |
+| 9 | Электрон почтаси          |
+
+---
+
+## ⚠️ Muhim qoidalar
+
+* Sertifikat havolasi ustunida **faqat Coursera link** bo‘lishi kerak
+* Faylda kamida **1 ta to‘g‘ri havola** bo‘lishi shart
+* Bo‘sh qatorlar bo‘lmasligi tavsiya etiladi
+* Noto‘g‘ri format → noto‘g‘ri natija
+
+---
+
 ## 📊 Hisobot tarkibi
 
-* F.I.SH (o‘quvchi ismi)
-* Kurs nomi
+Natija Excel faylida quyidagilar chiqadi:
+
+* F.I.SH
+* Kurs yo‘nalishi
 * Holati (MAVJUD / XATO / MAVJUD EMAS)
 * Natija
 * Sertifikat havolasi
@@ -69,9 +99,7 @@ fayl_nomi_Verify.xlsx
 
 ---
 
-## ⚡ Tavsiyalar
-
-Eng yaxshi natija uchun:
+## ⚡ Ishlash bo‘yicha tavsiyalar
 
 | Linklar soni | Tavsiya      |
 | ------------ | ------------ |
@@ -81,11 +109,20 @@ Eng yaxshi natija uchun:
 
 ---
 
-## ⚠️ Muhim eslatma
+## ⚠️ Cheklovlar
 
-* Juda ko‘p link tekshirilsa, Coursera vaqtincha blok qilishi mumkin
-* Agar “MAVJUD EMAS” ko‘p chiqsa → parallelni kamaytiring
-* Katta fayllarni bo‘lib tekshirish tavsiya qilinadi
+* Coursera juda ko‘p so‘rov bo‘lsa vaqtincha blok qilishi mumkin
+* Internet tezligi natijaga ta’sir qiladi
+* Juda katta fayllar sekin ishlashi mumkin
+
+---
+
+## 💡 Tavsiya
+
+Agar natijada ko‘p "MAVJUD EMAS" chiqsa:
+
+👉 Parallel tekshiruv sonini kamaytiring
+👉 Kichik bo‘laklarga bo‘lib tekshiring
 
 ---
 
@@ -96,6 +133,12 @@ Informatika va AT mutaxassisi
 
 ---
 
-## ⭐ Qo‘llab-quvvatlash
+## 📈 Loyiha haqida
 
-Agar loyiha foydali bo‘lsa, GitHub’da ⭐ bosishni unutmang.
+Ushbu loyiha ta’lim muassasalari uchun:
+
+* o‘quvchilar sertifikatlarini tez va aniq tekshirish
+* qo‘lda tekshirish vaqtini kamaytirish
+* xatoliklarni minimallashtirish
+
+uchun ishlab chiqilgan.
