@@ -163,6 +163,11 @@ def main():
         st.markdown("### 🛠 Dastur haqida")
         st.info("Coursera sertifikatlarini avtomatik tekshirish tizimi.")
         st.markdown("---")
+        st.markdown("""
+        <div class="footer">
+            Developed by Azamat Madrimov 🚀 | 2026
+        </div>
+        """, unsafe_allow_html=True)
         st.success("👨‍💻 **Tuzuvchi: Azamat Madrimov**")
         st.markdown("---")
         st.header("⚙️ Parametrlar")
