@@ -185,7 +185,23 @@ def main():
         timeout = st.slider("Kutish vaqti (sekund)", 5, 30, 15)
 
     st.subheader("Maktab o'quvchilari sertifikatlarini avtomatik tekshirish tizimi")
-    file = st.file_uploader("Excel (.xlsx) yoki CSV faylni yuklang", type=["xlsx", "csv"])
+    file = st.file_uploader(
+    "Excel (.xlsx) yoki CSV faylni yuklang",
+    type=["xlsx", "csv"],
+    help="""
+    Fayl quyidagi ustunlarda bo‘lishi kerak:
+
+    • №  
+    • Tuman/Shahar  
+    • Maktab raqami  
+    • Sinf  
+    • F.I.SH  
+    • Guvohnoma seriyasi va raqami  
+    • Tug‘ilgan sana  
+    • Sertifikat havolasi  
+    • Elektron pochta
+    """
+    )
 
     if file:
         try:
