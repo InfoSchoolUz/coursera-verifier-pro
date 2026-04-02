@@ -168,7 +168,17 @@ def main():
             Developed by Azamat Madrimov 🚀 | 2026
         </div>
         """, unsafe_allow_html=True)
-        st.success("👨‍💻 **Tuzuvchi: Azamat Madrimov**")
+        st.markdown("---")
+        st.markdown("### 📬 Muallifga murojaat")
+        st.markdown("""
+        <div style="line-height: 2;">
+        <img src="https://img.icons8.com/color/20/gmail-new.png"/> 
+        <a href="mailto:azamat3533141@gmail.com"> azamat3533141@gmail.com</a><br>
+
+        <img src="https://img.icons8.com/color/20/telegram-app.png"/> 
+        <a href="https://t.me/futurex_azamat"> @futurex_azamat</a>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown("---")
         st.header("⚙️ Parametrlar")
         threads = st.slider("Parallel tekshiruvlar", 5, 50, 25)
