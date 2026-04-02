@@ -16,35 +16,10 @@ from urllib.parse import urlparse
 st.set_page_config(page_title="Coursera Verifier Pro", layout="wide", page_icon="🎓")
 
 st.markdown("""
-<style>
-/* GitHub / Fork badge (barcha variantlar) */
-[class*="viewerBadge"] {
-    display: none !important;
-    visibility: hidden !important;
-}
-
-/* GitHub linklar */
-a[href*="github.com"] {
-    display: none !important;
-    visibility: hidden !important;
-}
-
-/* Yuqori o‘ngdagi badge container */
-[data-testid="stDecoration"] {
-    display: none !important;
-}
-
-/* Pastki footer */
-footer {
-    visibility: hidden !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
     <style>
     .reportview-container { background: #f0f2f6; }
     .stDataFrame { border: 1px solid #e6e9ef; border-radius: 10px; }
+
     .footer {
         position: fixed;
         left: 0;
@@ -57,6 +32,13 @@ st.markdown("""
         font-weight: bold;
         z-index: 1000;
     }
+
+    /* Streamlit default yuqori toolbar elementlarini yashirish */
+    [data-testid="stToolbar"] { display: none; }
+    [data-testid="stDecoration"] { display: none; }
+    [data-testid="stStatusWidget"] { display: none; }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -188,45 +170,56 @@ def main():
     with st.sidebar:
         st.markdown("### 🛠 Dastur haqida")
         st.info("Coursera sertifikatlarini avtomatik tekshirish tizimi.")
-        st.markdown("---")
-        st.markdown("""
-        <div class="footer">
-            Developed by Azamat Madrimov 🚀 | 2026
-        </div>
-        """, unsafe_allow_html=True)
+
         st.markdown("---")
         st.markdown("### 📬 Muallifga murojaat")
+
         st.markdown("""
         <div style="line-height: 2;">
-        <img src="https://img.icons8.com/color/20/gmail-new.png"/> 
-        <a href="mailto:azamat3533141@gmail.com"> azamat3533141@gmail.com</a><br>
+            <img src="https://img.icons8.com/color/20/gmail-new.png"/>
+            <a href="mailto:azamat3533141@gmail.com"> azamat3533141@gmail.com</a><br>
 
-        <img src="https://img.icons8.com/color/20/telegram-app.png"/> 
-        <a href="https://t.me/futurex_azamat"> @futurex_azamat</a>
+            <img src="https://img.icons8.com/color/20/telegram-app.png"/>
+            <a href="https://t.me/futurex_azamat"> @futurex_azamat</a>
         </div>
         """, unsafe_allow_html=True)
+
         st.markdown("---")
         st.header("⚙️ Parametrlar")
         threads = st.slider("Parallel tekshiruvlar", 5, 50, 25)
         timeout = st.slider("Kutish vaqti (sekund)", 5, 30, 15)
 
     st.subheader("Maktab o'quvchilari sertifikatlarini avtomatik tekshirish tizimi")
-    file = st.file_uploader(
-    "Excel (.xlsx) yoki CSV faylni yuklang",
-    type=["xlsx", "csv"],
-    help="""
-    Fayl quyidagi ustunlarda bo‘lishi kerak:
 
-    • №  
-    • Tuman/Shahar  
-    • Maktab raqami  
-    • Sinf  
-    • F.I.SH  
-    • Guvohnoma seriyasi va raqami  
-    • Tug‘ilgan sana  
-    • Sertifikat havolasi  
-    • Elektron pochta
-    """
+    # Yuklash labeli + yonida custom ? tooltip
+    st.markdown("""
+    <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+        <span style="font-size:16px;">
+            Excel (.xlsx) yoki CSV faylni yuklang
+        </span>
+        <span title="Fayl quyidagi ustunlarda bo‘lishi kerak: №, Tuman/Shahar, Maktab raqami, Sinf, F.I.SH, Guvohnoma seriyasi va raqami, Tug‘ilgan sana, Sertifikat havolasi, Elektron pochta"
+        style="
+            cursor:help;
+            color:#6c757d;
+            border:1px solid #c0c0c0;
+            border-radius:50%;
+            width:18px;
+            height:18px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            font-size:12px;
+            font-weight:bold;
+        ">
+            ?
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    file = st.file_uploader(
+        "",
+        type=["xlsx", "csv"],
+        label_visibility="collapsed"
     )
 
     if file:
@@ -294,7 +287,6 @@ def main():
                 unique_code_to_url = {}
                 unique_fallback_to_url = {}
 
-                # Faqat tanlangan sheetdan linklarni yig'ish
                 for sheet_info in prepared_sheets:
                     sheet_name = sheet_info["sheet_name"]
                     df = sheet_info["df"]
@@ -436,7 +428,6 @@ def main():
 
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    # Faqat tanlangan list uchun hisobot
                     for sheet_name in res_df["__sheet_name__"].dropna().unique():
                         sheet_df = res_df[res_df["__sheet_name__"] == sheet_name].drop(columns=["__sheet_name__"])
                         if not sheet_df.empty:
@@ -458,9 +449,10 @@ def main():
 
     st.markdown("""
         <div class="footer">
-            Tuzuvchi: Azamat Madrimov | 2026
+            Developed by Azamat Madrimov 🚀 | 2026
         </div>
         """, unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
