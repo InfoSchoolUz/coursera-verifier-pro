@@ -17,24 +17,27 @@ st.set_page_config(page_title="Coursera Verifier Pro", layout="wide", page_icon=
 
 st.markdown("""
 <style>
-/* GitHub / Fork badge ni yashirish */
-.viewerBadge_container__1QSob,
-.viewerBadge_link__1S137,
-.viewerBadge_text__1JaDK,
-button[title="View source on GitHub"],
+/* GitHub / Fork badge (barcha variantlar) */
+[class*="viewerBadge"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* GitHub linklar */
 a[href*="github.com"] {
     display: none !important;
     visibility: hidden !important;
 }
 
-/* Faqat Streamlit pastki footerini yashirish */
-footer { visibility: hidden !important; }
+/* Yuqori o‘ngdagi badge container */
+[data-testid="stDecoration"] {
+    display: none !important;
+}
 
-/* MUHIM: headerni yashirmaymiz */
-/* MUHIM: sidebar toggle ishlashi uchun header qoladi */
-
-/* Main menu ko'rinib tursin */
-#MainMenu { visibility: visible !important; }
+/* Pastki footer */
+footer {
+    visibility: hidden !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
