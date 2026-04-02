@@ -1,5 +1,6 @@
 import io
 import re
+import os
 import pandas as pd
 import requests
 import streamlit as st
@@ -173,10 +174,23 @@ def main():
 
     if file:
         try:
+            original_filename = file.name
+            base_name, ext = os.path.splitext(original_filename)
+
             if file.name.endswith(".csv"):
                 uploaded_sheets = {"CSV": pd.read_csv(file, skiprows=2)}
+                selected_sheet = "CSV"
             else:
                 uploaded_sheets = pd.read_excel(file, sheet_name=None, skiprows=2)
+
+                available_sheet_names = list(uploaded_sheets.keys())
+                selected_sheet = st.selectbox(
+                    "Tekshirish uchun listni tanlang",
+                    available_sheet_names,
+                    index=0
+                )
+
+                uploaded_sheets = {selected_sheet: uploaded_sheets[selected_sheet]}
 
             prepared_sheets = []
             total_students = 0
@@ -205,7 +219,7 @@ def main():
                     continue
 
                 prepared_sheets.append({
-                    "sheet_name": str(sheet_name)[:31],  # Excel limit
+                    "sheet_name": str(sheet_name)[:31],
                     "df": df,
                     "fish_col": fish_col,
                     "course_cols": course_cols
@@ -213,14 +227,17 @@ def main():
 
                 total_students += len(df)
 
-            st.success(f"Ma'lumotlar yuklandi. {len(prepared_sheets)} ta listdan jami {total_students} ta o'quvchi aniqlandi.")
+            st.success(
+                f"Ma'lumotlar yuklandi. Tanlangan list: {selected_sheet}. "
+                f"Jami {total_students} ta o'quvchi aniqlandi."
+            )
 
             if st.button("🚀 TEKSHIRISHNI BOSHLASH", type="primary", use_container_width=True):
                 all_entries = []
                 unique_code_to_url = {}
                 unique_fallback_to_url = {}
 
-                # Barcha sheetlardan linklarni yig'ish
+                # Faqat tanlangan sheetdan linklarni yig'ish
                 for sheet_info in prepared_sheets:
                     sheet_name = sheet_info["sheet_name"]
                     df = sheet_info["df"]
@@ -360,25 +377,21 @@ def main():
                     use_container_width=True
                 )
 
-                # Excel eksport: xuddi yuklangan fayldagi sheetlar bilan
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    # Umumiy hisobot
-                    res_df.drop(columns=["__sheet_name__"]).to_excel(
-                        writer, index=False, sheet_name="JAMI_HISOBOT"
-                    )
-
-                    # Har bir original sheet uchun alohida hisobot
+                    # Faqat tanlangan list uchun hisobot
                     for sheet_name in res_df["__sheet_name__"].dropna().unique():
                         sheet_df = res_df[res_df["__sheet_name__"] == sheet_name].drop(columns=["__sheet_name__"])
                         if not sheet_df.empty:
                             safe_sheet_name = str(sheet_name)[:31]
                             sheet_df.to_excel(writer, index=False, sheet_name=safe_sheet_name)
 
+                download_filename = f"{base_name}_Verify.xlsx"
+
                 st.download_button(
                     label="📥 Excelni yuklab olish",
                     data=output.getvalue(),
-                    file_name="Hisobot.xlsx",
+                    file_name=download_filename,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
