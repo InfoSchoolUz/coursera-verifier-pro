@@ -546,4 +546,25 @@ def main():
                             safe_sheet_name = str(sheet_name)[:31]
                             sheet_df.to_excel(writer, index=False, sheet_name=safe_sheet_name)
 
-               
+                download_filename = f"{base_name}_Verify.xlsx"
+
+                st.download_button(
+                    label="📥 Excelni yuklab olish",
+                    data=output.getvalue(),
+                    file_name=download_filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+        except Exception as e:
+            st.error(f"Xatolik: {e}")
+
+    # Asosiy sahifa footeri
+    st.markdown("""
+        <div class="footer">
+            Tuzuvchi: Azamat Madrimov | 2026
+        </div>
+        """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
