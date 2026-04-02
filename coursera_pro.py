@@ -16,6 +16,29 @@ from urllib.parse import urlparse
 st.set_page_config(page_title="Coursera Verifier Pro", layout="wide", page_icon="🎓")
 
 st.markdown("""
+<style>
+/* GitHub / Fork badge ni yashirish */
+.viewerBadge_container__1QSob,
+.viewerBadge_link__1S137,
+.viewerBadge_text__1JaDK,
+button[title="View source on GitHub"],
+a[href*="github.com"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Faqat Streamlit pastki footerini yashirish */
+footer { visibility: hidden !important; }
+
+/* MUHIM: headerni yashirmaymiz */
+/* MUHIM: sidebar toggle ishlashi uchun header qoladi */
+
+/* Main menu ko'rinib tursin */
+#MainMenu { visibility: visible !important; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
     <style>
     .reportview-container { background: #f0f2f6; }
     .stDataFrame { border: 1px solid #e6e9ef; border-radius: 10px; }
