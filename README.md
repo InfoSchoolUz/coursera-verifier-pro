@@ -1,144 +1,213 @@
-# 🎓 Coursera Sertifikat Tekshiruvchi Pro
+# 🎓 Coursera Certificate Verifier Pro
 
-Excel fayllar orqali Coursera sertifikatlarini avtomatik tekshiruvchi va hisobot shakllantiruvchi tizim.
+> **Maktab o'quvchilarining Coursera sertifikatlarini avtomatik tekshiruvchi va hisobot tuzuvchi tizim**
 
----
-
-## 🌐 Onlayn demo
-
-👉 https://coursera-verifier.streamlit.app/
+🌐 **Onlayn demo:** [coursera-verifier.streamlit.app](https://coursera-verifier.streamlit.app/)
 
 ---
 
-## 🚀 Asosiy imkoniyatlar
+## 📌 Loyiha nima qiladi?
 
-* ✅ Coursera sertifikat linklarini avtomatik tekshirish
-* 📊 Excel formatida professional hisobot chiqarish
-* 📅 Sertifikat olingan sanani aniqlash
-* 🔁 Takrorlanuvchi sertifikatlarni aniqlash
-* 📂 Excel ichidagi bir nechta listlarni qo‘llab-quvvatlash
-* 🎯 Faqat bitta listni tanlab tekshirish imkoniyati
-* ⚡ Parallel (tezkor) tekshiruv tizimi
-* 📥 Natijani avtomatik yuklab olish (`_Verify.xlsx`)
+Bu dastur maktab o'quvchilari topshirgan **Coursera sertifikat havolalarini** Excel fayldan o'qib, har birini internetda **avtomatik tekshiradi** va natijani yangi Excel faylga yozib chiqaradi.
+
+**Muammo:** 500 ta o'quvchining sertifikatini qo'lda tekshirish — soatlab vaqt.  
+**Yechim:** Dastur bu ishni bir necha daqiqada avtomatik bajaradi.
 
 ---
 
-## 📥 Qanday ishlaydi
-
-### 1. Fayl yuklash
-
-* Excel (.xlsx) yoki CSV fayl yuklanadi
-* Faylda bir nechta list bo‘lishi mumkin
-
-### 2. List tanlash
-
-* Tekshiriladigan list tanlanadi
-
-### 3. Tekshirishni boshlash
-
-* **"TEKSHIRISHNI BOSHLASH"** tugmasi bosiladi
-
-### 4. Natijani yuklab olish
-
-* Hisobot quyidagi nom bilan yuklanadi:
+## 🗂 Loyiha tuzilishi
 
 ```
-fayl_nomi_Verify.xlsx
+coursera-verifier-pro-main/
+│
+├── coursera_pro.py          ← Asosiy dastur (Streamlit ilovasi)
+├── run_app.py               ← Dasturni ishga tushirish skripti
+├── requirements.txt         ← Kerakli kutubxonalar ro'yxati
+├── coursera_template.xlsx   ← Namuna Excel fayl (shablon)
+├── .devcontainer/
+│   └── devcontainer.json    ← GitHub Codespaces sozlamalari
+├── .gitignore
+└── LICENSE
 ```
-
----
-
-## 📌 Excel fayl talablari (MAJBURIY)
-
-Yuklanadigan Excel fayl quyidagi ustunlarga ega bo‘lishi shart:
-
-| № | Ustun nomi                |
-| - | ------------------------- |
-| 1 | №                         |
-| 2 | Туман шаҳар номи          |
-| 3 | Мактаб рақами             |
-| 4 | Синфи                     |
-| 5 | Ўқувчининг ФИШ            |
-| 6 | Гувоҳнома серия ва рақами |
-| 7 | Туғилган куни             |
-| 8 | Сертификат ҳаволаси       |
-| 9 | Электрон почтаси          |
-
----
-
-## ⚠️ Muhim qoidalar
-
-* Sertifikat havolasi ustunida **faqat Coursera link** bo‘lishi kerak
-* Faylda kamida **1 ta to‘g‘ri havola** bo‘lishi shart
-* Bo‘sh qatorlar bo‘lmasligi tavsiya etiladi
-* Noto‘g‘ri format → noto‘g‘ri natija
-
----
-
-## 📊 Hisobot tarkibi
-
-Natija Excel faylida quyidagilar chiqadi:
-
-* F.I.SH
-* Kurs yo‘nalishi
-* Holati (MAVJUD / XATO / MAVJUD EMAS)
-* Natija
-* Sertifikat havolasi
-* Sertifikat kodi
-* Sertifikat olingan sana
 
 ---
 
 ## ⚙️ Texnologiyalar
 
-* Python
-* Streamlit
-* Pandas
-* Requests
-* BeautifulSoup
+| Kutubxona | Vazifasi |
+|-----------|----------|
+| **Streamlit** | Veb-interfeys (UI) yaratish |
+| **Pandas** | Excel/CSV fayllarni o'qish va qayta ishlash |
+| **Requests** | Internet orqali Coursera sahifalariga ulanish |
+| **BeautifulSoup4** | HTML sahifasidan sertifikat sanasini ajratib olish |
+| **OpenPyXL** | Natija Excel faylini yaratish |
 
 ---
 
-## ⚡ Ishlash bo‘yicha tavsiyalar
+## 🚀 Ishga tushirish (Lokal)
 
-| Linklar soni | Tavsiya      |
-| ------------ | ------------ |
-| 100–300      | Threads: 5   |
-| 500–1000     | Threads: 3–5 |
-| 2000+        | Threads: 3   |
+### 1. Talablar
+
+- Python 3.8 yoki undan yuqori
+- `pip` o'rnatilgan bo'lishi kerak
+
+### 2. Kutubxonalarni o'rnatish
+
+> ⚠️ `requirements.txt` da kichik xato bor: `openpyxl` va `beautifulsoup4` o'rtasida bo'sh qator yo'q. Quyidagi buyruqni ishlating:
+
+```bash
+pip install streamlit pandas requests beautifulsoup4 openpyxl
+```
+
+### 3. Dasturni ishga tushirish
+
+```bash
+streamlit run coursera_pro.py
+```
+
+Brauzer avtomatik ochiladi: `http://localhost:8501`
+
+---
+
+## 📊 Dastur qanday ishlaydi — Qadam-baqadam
+
+```
+1. Foydalanuvchi Excel fayl yuklaydi
+        ↓
+2. Dastur Excel'dagi barcha listlarni o'qiydi
+        ↓
+3. Foydalanuvchi qaysi listni tekshirishni tanlaydi
+        ↓
+4. Dastur Coursera havolalarini topadi
+        ↓
+5. Har bir havola parallel (bir vaqtda) tekshiriladi
+        ↓
+6. Har bir sertifikat uchun natija yoziladi
+        ↓
+7. Foydalanuvchi _Verify.xlsx faylini yuklab oladi
+```
+
+---
+
+## 📥 Excel fayl talablari
+
+Yuklanadigan fayl quyidagi **9 ta ustun**ga ega bo'lishi shart:
+
+| # | Ustun nomi | Izoh |
+|---|-----------|------|
+| 1 | № | Tartib raqami |
+| 2 | Туман шаҳар номи | Tuman/shahar |
+| 3 | Мактаб рақами | Maktab raqami |
+| 4 | Синфи | O'quvchi sinfi |
+| 5 | Ўқувчининг ФИШ | Familiya Ism Sharif |
+| 6 | Гувоҳнома серия ва рақами | Guvohnoma |
+| 7 | Туғилган куни | Tug'ilgan sana |
+| 8 | Сертификат ҳаволаси | ⭐ Coursera linki (asosiy) |
+| 9 | Электрон почтаси | Email manzil |
+
+> **Muhim:** Dastur ustun nomlarini avtomatik taniydi. Nomlarni o'zgartirmang!
+
+---
+
+## 📋 Natija fayli nimalardan iborat?
+
+Tekshiruv tugagach, `fayl_nomi_Verify.xlsx` fayliga quyidagi ma'lumotlar yoziladi:
+
+| Ustun | Mazmuni |
+|-------|---------|
+| F.I.SH | O'quvchi ismi |
+| Kurs yo'nalishi | Qaysi kurs ustunidan olingan |
+| Holati | `MAVJUD` / `XATO` / `MAVJUD EMAS` |
+| Natija | Batafsil xabar yoki `TAKRORLANUVCHI 🔄` |
+| Havola | Asl Coursera linki |
+| Sertifikat kodi | Linkdan ajratilgan unikal kod |
+| Sertifikat olingan sana | Sahifadan avtomatik topilgan sana |
+
+### Holat turlari:
+
+| Holat | Rang | Ma'nosi |
+|-------|------|---------|
+| ✅ `MAVJUD` | Yashil | Sertifikat haqiqiy va faol |
+| ❌ `XATO` | Qizil | Link ishlamaydi yoki login so'raydi |
+| 🟡 `MAVJUD EMAS` | Sariq | Coursera sahifasi emas |
+| 🔵 `TAKRORLANUVCHI` | Ko'k | Bir xil sertifikat bir necha marta ishlatilgan |
+
+---
+
+## 🧠 Dasturning texnik ishlash tartibi
+
+### Sertifikat kodi qanday aniqlanadi?
+
+Dastur Coursera linkidan unikal kodni ajratib oladi:
+
+```
+https://coursera.org/share/abc123xyz   →  kod: abc123xyz
+https://coursera.org/verify/def456     →  kod: def456
+```
+
+Bu kod yordamida **takrorlanuvchi sertifikatlar** aniqlanadi.
+
+### Parallel tekshiruv nima?
+
+Bir vaqtda bir nechta havolani tekshirish imkonini beradi. Masalan:
+
+- **25 parallel kanal** → 500 linkni ~2-3 daqiqada tekshiradi
+- **5 parallel kanal** → sekinroq, lekin server blok qilishi ehtimoli kam
+
+### Sana qanday topiladi?
+
+Dastur Coursera sahifasining HTML matnidan sanani qidiradi:
+
+```
+"January 15, 2024"  →  qaytaradi
+"2024-01-15"        →  qaytaradi
+```
+
+---
+
+## ⚡ Ishlash tavsiyalari
+
+| Linklar soni | Parallel tekshiruvlar | Kutish vaqti |
+|-------------|----------------------|-------------|
+| 100–300 | 25–30 | 15 sek |
+| 300–500 | 10–20 | 15 sek |
+| 500–1000 | 5–10 | 20 sek |
+| 1000+ | 3–5 | 25–30 sek |
 
 ---
 
 ## ⚠️ Cheklovlar
 
-* Coursera juda ko‘p so‘rov bo‘lsa vaqtincha blok qilishi mumkin
-* Internet tezligi natijaga ta’sir qiladi
-* Juda katta fayllar sekin ishlashi mumkin
+- Coursera ko'p so'rov kelsa, vaqtincha **blok qilishi mumkin** → parallel sonini kamayting
+- Katta fayllar (1000+ o'quvchi) ko'proq vaqt oladi
+- Internet tezligi natijaga ta'sir qiladi
+- Agar `MAVJUD EMAS` ko'p chiqsa → parallel sonini **3–5** ga tushiring
 
 ---
 
-## 💡 Tavsiya
+## 🐛 Bilinom xatolar
 
-Agar natijada ko‘p "MAVJUD EMAS" chiqsa:
-
-👉 Parallel tekshiruv sonini kamaytiring
-👉 Kichik bo‘laklarga bo‘lib tekshiring
+| Xato | Sababi | Yechim |
+|------|--------|--------|
+| `requirements.txt` o'rnatilmaydi | `openpyxl` va `bs4` birikib yozilgan | Alohida `pip install` qiling |
+| Ko'p `MAVJUD EMAS` | Coursera blok qilgan | Parallel sonini kamaytiring |
+| Sana topilmadi | Coursera sahifasi yopiq | Normal holat, sertifikat amal qilishi mumkin |
 
 ---
 
 ## 👨‍💻 Muallif
 
-**Azamat Madrimov**
-Informatika va AT mutaxassisi
+**Azamat Madrimov**  
+Informatika va AT o'qituvchisi  
+📧 azamat3533141@gmail.com  
+📱 [@futurex_azamat](https://t.me/futurex_azamat)
 
 ---
 
-## 📈 Loyiha haqida
+## 📄 Litsenziya
 
-Ushbu loyiha ta’lim muassasalari uchun:
+MIT License — erkin foydalanish, o'zgartirish va tarqatish mumkin.
 
-* o‘quvchilar sertifikatlarini tez va aniq tekshirish
-* qo‘lda tekshirish vaqtini kamaytirish
-* xatoliklarni minimallashtirish
+---
 
-uchun ishlab chiqilgan.
+*© 2026 Azamat Madrimov — Ta'lim muassasalari uchun ishlab chiqilgan*
