@@ -530,9 +530,6 @@ def main():
     st.title("🎓 Coursera Certificate Verifier Pro")
 
     with st.sidebar:
-        st.markdown("### 🛠 Dastur haqida")
-        st.info("Coursera sertifikatlarini avtomatik tekshirish tizimi.")
-        st.markdown("---")
         show_sample_download_section()
         st.markdown("---")
         st.markdown("### 📬 Muallifga murojaat")
