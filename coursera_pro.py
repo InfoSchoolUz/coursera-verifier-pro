@@ -370,23 +370,15 @@ def main():
     help="""
 
     Fayl quyidagi ustunlarga ega bo‘lishi lozim:
-
+    
     • №  
-
     • Tuman/Shahar  
-
     • Maktab raqami  
-
     • Sinf  
-
     • F.I.SH  
-
     • Guvohnoma seriyasi va raqami  
-
     • Tug‘ilgan sana  
-
     • Sertifikat havolasi  
-
     • Elektron pochta
 
     """
