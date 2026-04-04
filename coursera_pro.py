@@ -13,53 +13,108 @@ from urllib3.util.retry import Retry
 from urllib.parse import urlparse
 
 # ==========================================
-# 1. SAHIFA SOZLAMALARI VA DIZAYN
+# 1. KONSTANTALAR
 # ==========================================
-st.set_page_config(page_title="Coursera Certificate Verifier Pro", layout="wide", page_icon="🎓")
+TEMPLATE_FILENAME = "coursera_template.xlsx"
+
+MONTHS_PATTERN = (
+    r"January|February|March|April|May|June|"
+    r"July|August|September|October|November|December"
+)
+
+STOP_WORDS = frozenset({
+    "qizi", "qiz", "ogli", "gizi",
+    "mr", "mrs", "ms", "dr", "student",
+    "certificate", "completion", "completed", "course",
+    "coursera", "issued", "awarded", "earned", "verify"
+})
+
+BAD_WORDS = frozenset({
+    "completion", "certificate", "course", "coursera",
+    "google", "meta", "ibm", "scrimba", "openai", "build"
+})
+
+SKIP_URL_PARTS = frozenset({
+    "account", "accomplishments", "certificates",
+    "certificate", "verify", "share"
+})
+
+CYRILLIC_MAP = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d",
+    "е": "e", "ё": "yo", "ж": "j", "з": "z", "и": "i",
+    "й": "y", "к": "k", "л": "l", "м": "m", "н": "n",
+    "о": "o", "п": "p", "р": "r", "с": "s", "т": "t",
+    "у": "u", "ф": "f", "х": "x", "ц": "s", "ч": "ch",
+    "ш": "sh", "щ": "sh", "ъ": "", "ь": "", "э": "e",
+    "ю": "yu", "я": "ya", "ў": "o'", "қ": "q",
+    "ғ": "g'", "ҳ": "h", "ы": "i",
+}
+
+NAME_REPLACEMENTS = {
+    "o g li": "ogli", "o g'li": "ogli",
+    "o'g'li": "ogli", "ugli": "ogli",
+    "u g li": "ogli", "kizi": "qizi",
+}
+
+DATE_PATTERNS = [
+    rf"({MONTHS_PATTERN})\s+\d{{1,2}},\s+\d{{4}}",
+    rf"\d{{1,2}}\s+({MONTHS_PATTERN})\s+\d{{4}}",
+    r"\b(20\d{2}-\d{2}-\d{2})\b",
+]
+
+CSS_SELECTORS = [
+    "[data-e2e='certificate-name']",
+    ".certificate-name",
+    ".cert-name",
+    "[class*='certificateName']",
+    "[class*='recipient']",
+]
+
+# ==========================================
+# 2. SAHIFA SOZLAMALARI
+# ==========================================
+st.set_page_config(
+    page_title="Coursera Certificate Verifier Pro",
+    layout="wide",
+    page_icon="🎓"
+)
+
 st.markdown("""
     <style>
     .reportview-container { background: #f0f2f6; }
     .stDataFrame { border: 1px solid #e6e9ef; border-radius: 10px; }
     .footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: #0e1117;
-        color: white;
-        text-align: center;
-        padding: 10px;
-        font-weight: bold;
-        z-index: 1000;
+        position: fixed; left: 0; bottom: 0; width: 100%;
+        background-color: #0e1117; color: white;
+        text-align: center; padding: 10px;
+        font-weight: bold; z-index: 1000;
     }
     .sample-box {
-        padding: 14px;
-        border-radius: 14px;
+        padding: 14px; border-radius: 14px;
         background: linear-gradient(135deg, rgba(0,242,254,0.10), rgba(79,172,254,0.10));
-        border: 1px solid rgba(79,172,254,0.30);
-        margin-bottom: 12px;
+        border: 1px solid rgba(79,172,254,0.30); margin-bottom: 12px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. NAMUNA FAYL SOZLAMALARI
+# 3. YORDAMCHI FUNKSIYALAR
 # ==========================================
-TEMPLATE_FILENAME = "coursera_template.xlsx"
-
 def resolve_path(path: str) -> str:
     base_dir = getattr(sys, "_MEIPASS", os.path.abspath(os.path.dirname(__file__)))
     return os.path.join(base_dir, path)
 
-def get_template_bytes():
+
+def get_template_bytes() -> bytes | None:
     try:
-        template_path = resolve_path(TEMPLATE_FILENAME)
-        if os.path.exists(template_path):
-            with open(template_path, "rb") as f:
+        path = resolve_path(TEMPLATE_FILENAME)
+        if os.path.exists(path):
+            with open(path, "rb") as f:
                 return f.read()
     except Exception:
         pass
     return None
+
 
 def show_sample_download_section():
     st.markdown("### 📥 Namuna fayl")
@@ -69,6 +124,7 @@ def show_sample_download_section():
         Excel ustun nomlarini o'zgartirmang.
     </div>
     """, unsafe_allow_html=True)
+
     template_bytes = get_template_bytes()
     if template_bytes:
         st.download_button(
@@ -82,18 +138,16 @@ def show_sample_download_section():
         st.error("Namuna fayl topilmadi ❌")
 
 # ==========================================
-# 3. SERTIFIKAT KODINI AJRATISH
+# 4. SERTIFIKAT KODI AJRATISH
 # ==========================================
-def extract_certificate_code(url):
+def extract_certificate_code(url) -> str:
     if pd.isna(url):
         return ""
     url = str(url).strip()
     if not url.startswith("http"):
         return ""
     try:
-        parsed = urlparse(url)
-        path = parsed.path.strip("/").lower()
-        parts = path.split("/")
+        parts = urlparse(url).path.strip("/").lower().split("/")
 
         if len(parts) >= 2 and parts[0] == "share":
             return parts[1].strip().lower()
@@ -106,109 +160,67 @@ def extract_certificate_code(url):
         if "accomplishments" in parts:
             for part in reversed(parts):
                 part = part.strip().lower()
-                if part and part not in [
-                    "account", "accomplishments", "certificates",
-                    "certificate", "verify", "share"
-                ]:
+                if part and part not in SKIP_URL_PARTS:
                     return part
 
-        match = re.search(r"(?:share|verify)/([^/?#]+)", url, re.IGNORECASE)
-        if match:
-            return match.group(1).strip().lower()
+        m = re.search(r"(?:share|verify)/([^/?#]+)", url, re.IGNORECASE)
+        if m:
+            return m.group(1).strip().lower()
 
-        return ""
     except Exception:
-        return ""
+        pass
+    return ""
 
 # ==========================================
-# 4. SERTIFIKAT SANASINI AJRATISH
+# 5. SERTIFIKAT SANASI AJRATISH
 # ==========================================
-def extract_certificate_date(html):
+def extract_certificate_date(html: str) -> str:
     if not html:
         return ""
     try:
         soup = BeautifulSoup(html, "html.parser")
         text = soup.get_text(" ", strip=True)
 
-        patterns = [
-            r"(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}",
-            r"\d{1,2}\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}",
-            r"\b(20\d{2}-\d{2}-\d{2})\b",
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(0)
+        for pattern in DATE_PATTERNS:
+            m = re.search(pattern, text, re.IGNORECASE)
+            if m:
+                return m.group(0)
 
         for script in soup.find_all("script"):
             script_text = script.get_text(" ", strip=True)
-            for pattern in patterns:
-                match = re.search(pattern, script_text, re.IGNORECASE)
-                if match:
-                    return match.group(0)
+            for pattern in DATE_PATTERNS:
+                m = re.search(pattern, script_text, re.IGNORECASE)
+                if m:
+                    return m.group(0)
 
-        return ""
     except Exception:
-        return ""
+        pass
+    return ""
 
 # ==========================================
-# 5. ISM MOSLIGINI TEKSHIRISH — PRO
+# 6. ISM NORMALIZATSIYASI VA MOSLIK
 # ==========================================
 def transliterate_cyrillic_to_latin(text: str) -> str:
-    translit_map = {
-        "а": "a", "б": "b", "в": "v", "г": "g", "д": "d",
-        "е": "e", "ё": "yo", "ж": "j", "з": "z", "и": "i",
-        "й": "y", "к": "k", "л": "l", "м": "m", "н": "n",
-        "о": "o", "п": "p", "р": "r", "с": "s", "т": "t",
-        "у": "u", "ф": "f", "х": "x", "ц": "s", "ч": "ch",
-        "ш": "sh", "щ": "sh", "ъ": "", "ь": "", "э": "e",
-        "ю": "yu", "я": "ya",
-        "ў": "o'", "қ": "q", "ғ": "g'", "ҳ": "h",
-        "ы": "i",
-    }
-    return "".join(translit_map.get(ch, ch) for ch in text)
+    return "".join(CYRILLIC_MAP.get(ch, ch) for ch in text)
+
 
 def standardize_apostrophes(text: str) -> str:
-    return (
-        text.replace("’", "'")
-            .replace("‘", "'")
-            .replace("`", "'")
-            .replace("ʻ", "'")
-            .replace("ʼ", "'")
-            .replace("ʹ", "'")
-            .replace("´", "'")
-            .replace("o‘", "o'")
-            .replace("g‘", "g'")
-    )
+    for ch in ("'", "'", "`", "ʻ", "ʼ", "ʹ", "´"):
+        text = text.replace(ch, "'")
+    return text
+
 
 def simplify_token(token: str) -> str:
-    """
-    Fuzzy match uchun tokenni soddalashtiradi:
-    - apostrofni olib tashlaydi
-    - yo/yu/ya kabi yozuvlarni normalizatsiya qiladi
-    """
-    token = token.lower().strip()
-    token = standardize_apostrophes(token)
-    token = token.replace("'", "")
-    token = token.replace("yo", "io")
-    token = token.replace("yu", "iu")
-    token = token.replace("ya", "ia")
-    token = token.replace("ts", "s")
-    token = token.replace("iy", "i")
-    token = token.replace("yy", "y")
-    token = re.sub(r"[^a-z0-9-]", "", token)
-    return token
+    token = standardize_apostrophes(token.lower().strip())
+    for old, new in (
+        ("'", ""), ("yo", "io"), ("yu", "iu"),
+        ("ya", "ia"), ("ts", "s"), ("iy", "i"), ("yy", "y"),
+    ):
+        token = token.replace(old, new)
+    return re.sub(r"[^a-z0-9-]", "", token)
+
 
 def normalize_name(name: str) -> list[str]:
-    """
-    Ismni normallashtirib, tokenlar ro'yxatini qaytaradi.
-    Kuchli versiya:
-    - kirill -> lotin
-    - apostrof birxillashtirish
-    - qizi/o'g'li kabi shovqinlarni chiqarib tashlash
-    - keraksiz qismlar va bitta harfli bo'laklarni tozalash
-    """
     if not name or not isinstance(name, str):
         return []
 
@@ -216,75 +228,43 @@ def normalize_name(name: str) -> list[str]:
     name = standardize_apostrophes(name)
     name = transliterate_cyrillic_to_latin(name)
 
-    # Ba'zi odatiy variantlarni birxillashtirish
-    replacements = {
-        "o g li": "ogli",
-        "o g'li": "ogli",
-        "o'g'li": "ogli",
-        "o‘g‘li": "ogli",
-        "ugli": "ogli",
-        "u g li": "ogli",
-        "qizi": "qizi",
-        "kizi": "qizi",
-    }
-    for old, new in replacements.items():
+    for old, new in NAME_REPLACEMENTS.items():
         name = name.replace(old, new)
 
     name = re.sub(r"[^a-z0-9'\s-]", " ", name, flags=re.IGNORECASE)
     name = re.sub(r"\s+", " ", name).strip()
 
-    raw_tokens = [t.strip() for t in name.split() if t.strip()]
-
-    stop_words = {
-        "qizi", "qiz", "ogli", "ogli", "gizi",
-        "mr", "mrs", "ms", "dr", "student",
-        "certificate", "completion", "completed", "course",
-        "coursera", "issued", "awarded", "earned", "verify"
-    }
-
     tokens = []
-    for t in raw_tokens:
-        s = simplify_token(t)
-        if not s:
-            continue
-        if s in stop_words:
-            continue
-        if len(s) == 1:
-            continue
-        tokens.append(s)
-
+    for t in name.split():
+        s = simplify_token(t.strip())
+        if s and s not in STOP_WORDS and len(s) > 1:
+            tokens.append(s)
     return tokens
+
 
 def token_similarity(a: str, b: str) -> float:
     return difflib.SequenceMatcher(None, a, b).ratio()
 
-def build_token_matches(excel_tokens: list[str], cert_tokens: list[str], threshold: float = 0.84):
-    """
-    Excel tokenlari uchun sertifikat tokenlari orasidan eng moslarini topadi.
-    Har bir cert token bir marta ishlatiladi.
-    """
+
+def build_token_matches(
+    excel_tokens: list[str],
+    cert_tokens: list[str],
+    threshold: float = 0.84
+) -> list[tuple[str, str, float]]:
     matches = []
-    used_cert = set()
+    used_cert: set[int] = set()
 
     for et in excel_tokens:
-        best_idx = None
-        best_score = 0.0
-        best_token = None
+        best_idx, best_score, best_token = None, 0.0, None
 
         for idx, ct in enumerate(cert_tokens):
             if idx in used_cert:
                 continue
-
             score = token_similarity(et, ct)
-
-            # Prefix yordam: abdulaziz / abdulazizbek kabi holatlar
             if et.startswith(ct) or ct.startswith(et):
                 score = max(score, 0.90)
-
             if score > best_score:
-                best_score = score
-                best_idx = idx
-                best_token = ct
+                best_score, best_idx, best_token = score, idx, ct
 
         if best_idx is not None and best_score >= threshold:
             used_cert.add(best_idx)
@@ -292,13 +272,8 @@ def build_token_matches(excel_tokens: list[str], cert_tokens: list[str], thresho
 
     return matches
 
-def canonical_name_string(tokens: list[str]) -> str:
-    return " ".join(sorted(tokens))
 
 def check_name_match(excel_name: str, cert_name: str) -> tuple[str, str]:
-    """
-    Excel dagi F.I.SH va sertifikatdagi ism familiyani pro darajada solishtiradi.
-    """
     excel_tokens = normalize_name(str(excel_name))
     cert_tokens = normalize_name(str(cert_name))
 
@@ -310,177 +285,142 @@ def check_name_match(excel_name: str, cert_name: str) -> tuple[str, str]:
     excel_set = set(excel_tokens)
     cert_set = set(cert_tokens)
 
-    # 1. To'liq set mosligi (tartibdan qat'i nazar)
     if excel_set == cert_set:
         return "MOS ✅", f"To'liq mos: '{cert_name}'"
 
-    # 2. Excel tokenlari sertifikat ichida to'liq mavjud
     if excel_set.issubset(cert_set):
         extra = cert_set - excel_set
-        if extra:
-            return "MOS ✅", f"Mos (qo'shimcha tokenlar: {', '.join(sorted(extra))}): '{cert_name}'"
-        return "MOS ✅", f"To'liq mos: '{cert_name}'"
+        label = f"Mos (qo'shimcha tokenlar: {', '.join(sorted(extra))}): " if extra else ""
+        return "MOS ✅", f"{label}'{cert_name}'"
 
-    # 3. Sertifikat tokenlari Excel ichida subset
     if cert_set.issubset(excel_set):
         extra = excel_set - cert_set
         return "MOS ✅", f"Mos (Excel to'liqroq, ortiqcha: {', '.join(sorted(extra))}): '{cert_name}'"
 
-    # 4. Fuzzy token match
     matches = build_token_matches(excel_tokens, cert_tokens, threshold=0.84)
-    matched_excel_tokens = {m[0] for m in matches}
-    matched_cert_tokens = {m[1] for m in matches}
+    matched_excel = {m[0] for m in matches}
+    matched_cert = {m[1] for m in matches}
+    n_e, n_c, n_m = len(excel_tokens), len(cert_tokens), len(matches)
+    e_ratio = n_m / n_e if n_e else 0
+    c_ratio = n_m / n_c if n_c else 0
+    pairs_str = ", ".join(f"{a}~{b}" for a, b, _ in matches)
 
-    excel_count = len(excel_tokens)
-    cert_count = len(cert_tokens)
-    match_count = len(matches)
+    if n_m >= 2 and e_ratio >= 0.80:
+        return "MOS ✅", f"Fuzzy mos: {pairs_str} | Sertifikat: '{cert_name}'"
 
-    excel_ratio = match_count / excel_count if excel_count else 0
-    cert_ratio = match_count / cert_count if cert_count else 0
-
-    # 5. Juda kuchli fuzzy moslik
-    if match_count >= 2 and excel_ratio >= 0.80:
-        detail_pairs = ", ".join([f"{a}~{b}" for a, b, _ in matches])
-        return "MOS ✅", f"Fuzzy mos: {detail_pairs} | Sertifikat: '{cert_name}'"
-
-    # 6. O'rtacha moslik
-    if match_count >= 2 and (excel_ratio >= 0.60 or cert_ratio >= 0.60):
-        missing_excel = [t for t in excel_tokens if t not in matched_excel_tokens]
-        extra_cert = [t for t in cert_tokens if t not in matched_cert_tokens]
-        detail_pairs = ", ".join([f"{a}~{b}" for a, b, _ in matches])
+    if n_m >= 2 and (e_ratio >= 0.60 or c_ratio >= 0.60):
+        missing = [t for t in excel_tokens if t not in matched_excel]
+        extra = [t for t in cert_tokens if t not in matched_cert]
         return (
             "QISMAN MOS ⚠️",
-            f"Qisman mos: {detail_pairs} | Yetishmaydi: {', '.join(missing_excel) if missing_excel else '-'} | "
-            f"Qo'shimcha: {', '.join(extra_cert) if extra_cert else '-'} | Sertifikat: '{cert_name}'"
+            f"Qisman mos: {pairs_str} | Yetishmaydi: {', '.join(missing) or '-'} | "
+            f"Qo'shimcha: {', '.join(extra) or '-'} | Sertifikat: '{cert_name}'"
         )
 
-    # 7. Umumiy canonical string yaqin bo'lsa
-    excel_canon = canonical_name_string(excel_tokens)
-    cert_canon = canonical_name_string(cert_tokens)
-    whole_ratio = difflib.SequenceMatcher(None, excel_canon, cert_canon).ratio()
+    excel_canon = " ".join(sorted(excel_tokens))
+    cert_canon = " ".join(sorted(cert_tokens))
+    ratio = difflib.SequenceMatcher(None, excel_canon, cert_canon).ratio()
+    min_count = min(n_e, n_c)
 
-    if whole_ratio >= 0.88 and min(excel_count, cert_count) >= 2:
-        return "MOS ✅", f"Canonically mos ({whole_ratio:.2f}): '{cert_name}'"
-
-    if whole_ratio >= 0.72 and min(excel_count, cert_count) >= 2:
-        return "QISMAN MOS ⚠️", f"Yaqin moslik ({whole_ratio:.2f}) | Excel: '{excel_name}' | Sertifikat: '{cert_name}'"
+    if ratio >= 0.88 and min_count >= 2:
+        return "MOS ✅", f"Canonically mos ({ratio:.2f}): '{cert_name}'"
+    if ratio >= 0.72 and min_count >= 2:
+        return "QISMAN MOS ⚠️", f"Yaqin moslik ({ratio:.2f}) | Excel: '{excel_name}' | Sertifikat: '{cert_name}'"
 
     return "MOS EMAS ❌", f"Excel: '{excel_name}' | Sertifikat: '{cert_name}'"
 
 # ==========================================
-# 6. SAHIFADAN ISM AJRATISH — KUCHAYTIRILGAN
+# 7. SAHIFADAN ISM AJRATISH
 # ==========================================
+_MONTH_RE = re.compile(MONTHS_PATTERN, re.IGNORECASE)
+_HOURS_RE = re.compile(r"\b\d+\s+hours?.*$", re.IGNORECASE)
+_CERT_RE = re.compile(r"\b(Coursera|Certificate|Completion|Course|Verify).*$", re.IGNORECASE)
+
+DIRECT_NAME_PATTERNS = [
+    rf"Completed by\s+(.+?)(?=\s+(?:{MONTHS_PATTERN})\b)",
+    r"Completed by\s+(.+?)(?=\s+\d+\s+hours?)",
+    r"Completed by\s+(.+?)(?=\s+Coursera\b)",
+    r"Completed by\s+(.+?)(?=\s+certifies\b)",
+    r"Completed by\s+(.+?)(?=\s+has\s+successfully\s+completed\b)",
+    rf"(?:awarded to|issued to|earned by|completed by)\s+(.+?)(?=\s+(?:{MONTHS_PATTERN}|\d+\s+hours?|Coursera|Certificate))",
+]
+
+FALLBACK_NAME_PATTERNS = [
+    r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+has\s+(?:successfully\s+)?completed",
+    r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+earned\s+this\s+certificate",
+]
+
+
 def clean_candidate_name(candidate: str) -> str:
     if not candidate:
         return ""
-
     candidate = re.sub(r"\s+", " ", candidate).strip()
-    candidate = re.sub(
-        r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\b.*$",
-        "",
-        candidate,
-        flags=re.IGNORECASE
-    )
-    candidate = re.sub(r"\b\d+\s+hours?.*$", "", candidate, flags=re.IGNORECASE)
-    candidate = re.sub(r"\b(Coursera|Certificate|Completion|Course|Verify).*$", "", candidate, flags=re.IGNORECASE)
+    candidate = _MONTH_RE.sub("", candidate)
+    candidate = _HOURS_RE.sub("", candidate)
+    candidate = _CERT_RE.sub("", candidate)
     candidate = re.sub(r"\s+", " ", candidate).strip()
 
     words = candidate.split()
     if not (2 <= len(words) <= 6):
         return ""
-
-    bad_words = {
-        "completion", "certificate", "course", "coursera",
-        "google", "meta", "ibm", "scrimba", "openai", "build"
-    }
-    if any(w.lower() in bad_words for w in words):
+    if any(w.lower() in BAD_WORDS for w in words):
         return ""
-
     return candidate
 
+
 def extract_name_from_page(html: str) -> str:
-    """
-    Coursera sertifikat sahifasidan egasining ismini ajratib oladi.
-    """
     if not html:
         return ""
-
     try:
         soup = BeautifulSoup(html, "html.parser")
-        full_text = soup.get_text(" ", strip=True)
-        full_text = re.sub(r"\s+", " ", full_text)
+        full_text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True))
 
-        direct_patterns = [
-            r"Completed by\s+(.+?)(?=\s+(January|February|March|April|May|June|July|August|September|October|November|December)\b)",
-            r"Completed by\s+(.+?)(?=\s+\d+\s+hours?)",
-            r"Completed by\s+(.+?)(?=\s+Coursera\b)",
-            r"Completed by\s+(.+?)(?=\s+certifies\b)",
-            r"Completed by\s+(.+?)(?=\s+has\s+successfully\s+completed\b)",
-            r"(?:awarded to|issued to|earned by|completed by)\s+(.+?)(?=\s+(January|February|March|April|May|June|July|August|September|October|November|December|\d+\s+hours?|Coursera|Certificate))",
-        ]
-
-        for pattern in direct_patterns:
-            match = re.search(pattern, full_text, re.IGNORECASE)
-            if match:
-                candidate = clean_candidate_name(match.group(1))
-                if candidate:
-                    return candidate
-
-        # title / meta
-        og_title = soup.find("meta", property="og:title")
-        if og_title and og_title.get("content"):
-            title_text = og_title["content"]
-            m = re.match(r"^(.+?)(?:'s)?\s+(?:Certificate|Certification|Course)", title_text, re.IGNORECASE)
+        for pattern in DIRECT_NAME_PATTERNS:
+            m = re.search(pattern, full_text, re.IGNORECASE)
             if m:
-                candidate = clean_candidate_name(m.group(1))
-                if candidate:
-                    return candidate
+                name = clean_candidate_name(m.group(1))
+                if name:
+                    return name
 
-        title_tag = soup.find("title")
-        if title_tag and title_tag.string:
-            title_text = title_tag.string.strip()
-            m = re.match(r"^(.+?)(?:'s)?\s+(?:Certificate|Certification|Course)", title_text, re.IGNORECASE)
+        for tag, attr in (
+            (soup.find("meta", property="og:title"), "content"),
+            (soup.find("title"), None),
+        ):
+            if tag:
+                text = tag.get(attr) if attr else getattr(tag, "string", None)
+                if text:
+                    m = re.match(
+                        r"^(.+?)(?:'s)?\s+(?:Certificate|Certification|Course)",
+                        str(text).strip(), re.IGNORECASE
+                    )
+                    if m:
+                        name = clean_candidate_name(m.group(1))
+                        if name:
+                            return name
+
+        for selector in CSS_SELECTORS:
+            el = soup.select_one(selector)
+            if el:
+                name = clean_candidate_name(el.get_text(strip=True))
+                if name:
+                    return name
+
+        for pattern in FALLBACK_NAME_PATTERNS:
+            m = re.search(pattern, full_text, re.IGNORECASE)
             if m:
-                candidate = clean_candidate_name(m.group(1))
-                if candidate:
-                    return candidate
+                name = clean_candidate_name(m.group(1))
+                if name:
+                    return name
 
-        # CSS selector fallback
-        for selector in [
-            "[data-e2e='certificate-name']",
-            ".certificate-name",
-            ".cert-name",
-            "[class*='certificateName']",
-            "[class*='recipient']",
-        ]:
-            element = soup.select_one(selector)
-            if element and element.get_text(strip=True):
-                candidate = clean_candidate_name(element.get_text(strip=True))
-                if candidate:
-                    return candidate
-
-        # generic fallback
-        fallback_patterns = [
-            r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+has\s+(?:successfully\s+)?completed",
-            r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+earned\s+this\s+certificate",
-        ]
-
-        for pattern in fallback_patterns:
-            match = re.search(pattern, full_text, re.IGNORECASE)
-            if match:
-                candidate = clean_candidate_name(match.group(1))
-                if candidate:
-                    return candidate
-
-        return ""
     except Exception:
-        return ""
+        pass
+    return ""
 
 # ==========================================
-# 7. NETWORK SESSIYASI
+# 8. NETWORK SESSIYASI
 # ==========================================
 @st.cache_resource
-def get_pro_session():
+def get_pro_session() -> requests.Session:
     session = requests.Session()
     retry = Retry(
         total=5,
@@ -491,40 +431,283 @@ def get_pro_session():
     adapter = HTTPAdapter(max_retries=retry, pool_connections=100, pool_maxsize=100)
     session.mount("https://", adapter)
     session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        )
     })
     return session
 
 # ==========================================
-# 8. VERIFIKATSIYA MANTIQI
+# 9. VERIFIKATSIYA
 # ==========================================
-def verify_link(session, url, timeout):
+_VALID_PATHS = frozenset({"/share/", "/verify/", "/accomplishments/"})
+
+
+def verify_link(session: requests.Session, url, timeout: int) -> tuple:
     if pd.isna(url) or not str(url).startswith("http"):
         return "MAVJUD EMAS", "-", "Havola topilmadi", "", ""
 
     url = str(url).strip()
-
     try:
         resp = session.get(url, timeout=timeout, allow_redirects=True)
         final_url = resp.url.lower()
-        is_valid_path = any(x in final_url for x in ["/share/", "/verify/", "/accomplishments/"])
-        html_content = resp.text if resp.status_code == 200 else ""
+        is_valid = any(p in final_url for p in _VALID_PATHS)
+        html = resp.text if resp.status_code == 200 else ""
 
-        cert_date = extract_certificate_date(html_content)
-        cert_name = extract_name_from_page(html_content)
+        cert_date = extract_certificate_date(html)
+        cert_name = extract_name_from_page(html)
 
-        if resp.status_code == 200 and is_valid_path:
+        if resp.status_code == 200 and is_valid:
             return "MAVJUD", "200", "Tasdiqlandi ✅", cert_date, cert_name
-        elif "login" in final_url or "signup" in final_url:
+        if "login" in final_url or "signup" in final_url:
             return "XATO", "Redirect", "Avtorizatsiya so'raldi (Xato link)", cert_date, cert_name
-        else:
-            return "MAVJUD EMAS", str(resp.status_code), "Sertifikat sahifasi emas", cert_date, cert_name
+        return "MAVJUD EMAS", str(resp.status_code), "Sertifikat sahifasi emas", cert_date, cert_name
 
     except Exception:
         return "XATO", "Timeout/Error", "Ulanish imkonsiz", "", ""
 
 # ==========================================
-# 9. ASOSIY ILOVA
+# 10. FAYLNI O'QISH VA TAYYORLASH
+# ==========================================
+def load_sheets(file) -> tuple[dict, str]:
+    """Fayl (xlsx yoki csv) dan listlarni o'qib qaytaradi."""
+    if file.name.endswith(".csv"):
+        return {"CSV": pd.read_csv(file, skiprows=2)}, "CSV"
+
+    all_sheets = pd.read_excel(file, sheet_name=None, skiprows=2)
+    names = list(all_sheets.keys())
+    selected = st.selectbox("Tekshirish uchun listni tanlang", names, index=0)
+    return {selected: all_sheets[selected]}, selected
+
+
+def prepare_sheets(uploaded_sheets: dict) -> tuple[list[dict], int]:
+    """Har bir listdan fish_col va course_cols ni aniqlab chiqadi."""
+    prepared, total = [], 0
+    for sheet_name, df in uploaded_sheets.items():
+        if df is None or df.empty:
+            continue
+        df.columns = [str(c).replace("\n", " ").strip() for c in df.columns]
+        all_cols = df.columns.tolist()
+        if not all_cols:
+            continue
+
+        fish_col = next(
+            (c for c in all_cols if "ФИШ" in c.upper() or "F.I.SH" in c.upper()),
+            all_cols[4] if len(all_cols) > 4 else all_cols[0]
+        )
+        course_cols = [
+            c for c in all_cols
+            if df[c].astype(str).str.contains("coursera.org", na=False).any()
+        ]
+        if not course_cols:
+            continue
+
+        prepared.append({
+            "sheet_name": str(sheet_name)[:31],
+            "df": df,
+            "fish_col": fish_col,
+            "course_cols": course_cols,
+        })
+        total += len(df)
+    return prepared, total
+
+
+def collect_entries(prepared_sheets: list[dict]) -> tuple[list[dict], dict, dict]:
+    """Barcha sertifikat yozuvlarini to'plab, unikal kodlarni ajratadi."""
+    all_entries: list[dict] = []
+    unique_code_to_url: dict[str, str] = {}
+    unique_fallback_to_url: dict[str, str] = {}
+
+    for info in prepared_sheets:
+        for _, row in info["df"].iterrows():
+            for col in info["course_cols"]:
+                raw = row[col]
+                url = str(raw).strip()
+                if pd.isna(raw) or "http" not in url:
+                    continue
+
+                code = extract_certificate_code(url)
+                all_entries.append({
+                    "sheet_name": info["sheet_name"],
+                    "name": row[info["fish_col"]],
+                    "course": col,
+                    "url": url,
+                    "cert_code": code,
+                })
+
+                if code:
+                    unique_code_to_url.setdefault(code, url)
+                else:
+                    unique_fallback_to_url.setdefault(url, url)
+
+    return all_entries, unique_code_to_url, unique_fallback_to_url
+
+
+def run_verification(
+    session: requests.Session,
+    unique_code_to_url: dict,
+    unique_fallback_to_url: dict,
+    threads: int,
+    timeout: int,
+) -> tuple[dict, dict]:
+    """Parallel tekshiruvni amalga oshirib natijalar lug'atini qaytaradi."""
+    code_results: dict[str, tuple] = {}
+    url_results: dict[str, tuple] = {}
+
+    code_items = list(unique_code_to_url.items())
+    url_items = list(unique_fallback_to_url.items())
+    total = len(code_items) + len(url_items)
+
+    progress = st.progress(0)
+    status_box = st.empty()
+
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        future_map: dict = {}
+        for code, url in code_items:
+            future_map[executor.submit(verify_link, session, url, timeout)] = ("code", code)
+        for key, url in url_items:
+            future_map[executor.submit(verify_link, session, url, timeout)] = ("url", key)
+
+        for i, future in enumerate(as_completed(future_map), 1):
+            kind, key = future_map[future]
+            result = future.result()
+            (code_results if kind == "code" else url_results)[key] = result
+            progress.progress(i / total)
+            status_box.text(f"Tekshirilmoqda: {i}/{total}")
+
+    return code_results, url_results
+
+
+def build_final_data(
+    all_entries: list[dict],
+    code_results: dict,
+    url_results: dict,
+) -> list[dict]:
+    """Har bir yozuv uchun natija va ism-moslikni yig'adi."""
+    final_data = []
+    seen_codes: set[str] = set()
+    seen_urls: set[str] = set()
+
+    for item in all_entries:
+        code = item["cert_code"]
+        url = item["url"]
+        excel_name = item["name"]
+
+        if code and code in code_results:
+            status, http_code, reason, cert_date, cert_name = code_results[code]
+        elif not code and url in url_results:
+            status, http_code, reason, cert_date, cert_name = url_results[url]
+        else:
+            status, http_code, reason, cert_date, cert_name = (
+                "XATO", "CodeError", "Sertifikat kodi aniqlanmadi", "", ""
+            )
+
+        # Takrorlanishni tekshirish
+        is_dup = (code and code in seen_codes) or (not code and url in seen_urls)
+
+        if is_dup:
+            display_reason = "TAKRORLANUVCHI 🔄"
+            name_status = "TEKSHIRILMADI ⚠️"
+            name_detail = "Takrorlanuvchi sertifikat"
+        else:
+            display_reason = reason
+            if code:
+                seen_codes.add(code)
+            else:
+                seen_urls.add(url)
+
+            if status == "MAVJUD":
+                name_status, name_detail = check_name_match(excel_name, cert_name)
+            else:
+                name_status = "TEKSHIRILMADI ⚠️"
+                name_detail = "Sertifikat mavjud emas"
+
+        final_data.append({
+            "F.I.SH": excel_name,
+            "Kurs yo'nalishi": item["course"],
+            "Holati": status,
+            "Natija": display_reason,
+            "Ism Moslik": name_status,
+            "Moslik Tafsiloti": name_detail,
+            "Sertifikatdagi Ism": cert_name,
+            "Havola": url,
+            "Sertifikat kodi": code,
+            "Sertifikat olingan sana": cert_date,
+            "__sheet_name__": item["sheet_name"],
+        })
+
+    return final_data
+
+# ==========================================
+# 11. NATIJALARNI KO'RSATISH
+# ==========================================
+def show_metrics(df: pd.DataFrame):
+    dup = int((df["Natija"] == "TAKRORLANUVCHI 🔄").sum())
+    confirmed = int(((df["Holati"] == "MAVJUD") & (df["Natija"] != "TAKRORLANUVCHI 🔄")).sum())
+    errors = int((df["Holati"] != "MAVJUD").sum())
+    mos = int((df["Ism Moslik"] == "MOS ✅").sum())
+    partial = int((df["Ism Moslik"] == "QISMAN MOS ⚠️").sum())
+    mismatch = int((df["Ism Moslik"] == "MOS EMAS ❌").sum())
+
+    st.divider()
+    cols = st.columns(7)
+    for col, label, val in zip(cols, [
+        "Jami tekshirildi", "Tasdiqlandi ✅", "Xato/Mavjud emas ❌",
+        "Takrorlanuvchi 🔄", "Ism mos ✅", "Qisman mos ⚠️", "Ism mos emas ❌"
+    ], [len(df), confirmed, errors, dup, mos, partial, mismatch]):
+        col.metric(label, val)
+
+    st.caption(
+        f"Unikal sertifikat kodlari: {df['Sertifikat kodi'].replace('', pd.NA).nunique()} | "
+        f"Takrorlar: {dup} | Ism mos emas: {mismatch}"
+    )
+
+
+def row_style(row):
+    n = len(row)
+    styles = [""] * n
+    idx_map = {col: row.index.get_loc(col) for col in ("Holati", "Ism Moslik") if col in row.index}
+
+    STATUS_COLORS = {
+        "MAVJUD": "#d4edda", "XATO": "#f8d7da",
+        "MAVJUD EMAS": "#fff3cd",
+    }
+    MATCH_COLORS = {
+        "MOS ✅": "#d4edda", "QISMAN MOS ⚠️": "#fff3cd",
+        "MOS EMAS ❌": "#f8d7da",
+    }
+
+    if "Holati" in idx_map:
+        styles[idx_map["Holati"]] = (
+            f"background-color: {STATUS_COLORS.get(row['Holati'], '#cce5ff')}"
+        )
+    if "Ism Moslik" in idx_map:
+        styles[idx_map["Ism Moslik"]] = (
+            f"background-color: {MATCH_COLORS.get(row['Ism Moslik'], '#e2e3e5')}"
+        )
+    return styles
+
+
+def export_excel(res_df: pd.DataFrame, base_name: str):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        for sheet_name in res_df["__sheet_name__"].dropna().unique():
+            sheet_df = res_df[res_df["__sheet_name__"] == sheet_name].drop(columns=["__sheet_name__"])
+            if not sheet_df.empty:
+                sheet_df.to_excel(writer, index=False, sheet_name=str(sheet_name)[:31])
+
+    st.download_button(
+        label="📥 Excelni yuklab olish",
+        data=output.getvalue(),
+        file_name=f"{base_name}_Verify.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+
+# ==========================================
+# 12. ASOSIY ILOVA
 # ==========================================
 def main():
     st.title("🎓 Coursera Certificate Verifier Pro")
@@ -535,8 +718,10 @@ def main():
         st.markdown("### 📬 Muallifga murojaat")
         st.markdown("""
         <div style="line-height: 2;">
-        <img src="https://img.icons8.com/color/20/gmail-new.png"/><a href="mailto:azamat3533141@gmail.com"> azamat3533141@gmail.com</a><br>
-        <img src="https://img.icons8.com/color/20/telegram-app.png"/><a href="https://t.me/futurex_azamat"> @futurex_azamat</a>
+        <img src="https://img.icons8.com/color/20/gmail-new.png"/>
+        <a href="mailto:azamat3533141@gmail.com"> azamat3533141@gmail.com</a><br>
+        <img src="https://img.icons8.com/color/20/telegram-app.png"/>
+        <a href="https://t.me/futurex_azamat"> @futurex_azamat</a>
         </div>
         """, unsafe_allow_html=True)
         st.markdown("---")
@@ -548,291 +733,68 @@ def main():
     file = st.file_uploader(
         "Excel (.xlsx) yoki CSV faylni yuklang",
         type=["xlsx", "csv"],
-        help="""
-Fayl quyidagi ustunlarga ega bo'lishi lozim:
-• №
-• Tuman/Shahar
-• Maktab raqami
-• Sinf
-• F.I.SH
-• Guvohnoma seriyasi va raqami
-• Tug'ilgan sana
-• Sertifikat havolasi
-• Elektron pochta
-⚠️ Ustun nomlari o'zgartirilsa yoki joyi almashsa, tizim noto'g'ri ishlashi mumkin.
-"""
+        help=(
+            "Fayl quyidagi ustunlarga ega bo'lishi lozim:\n"
+            "• №\n• Tuman/Shahar\n• Maktab raqami\n• Sinf\n• F.I.SH\n"
+            "• Guvohnoma seriyasi va raqami\n• Tug'ilgan sana\n"
+            "• Sertifikat havolasi\n• Elektron pochta\n\n"
+            "⚠️ Ustun nomlari o'zgartirilsa yoki joyi almashsa, "
+            "tizim noto'g'ri ishlashi mumkin."
+        )
     )
 
-    if file:
-        try:
-            original_filename = file.name
-            base_name, ext = os.path.splitext(original_filename)
+    if not file:
+        st.markdown(
+            '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
+            unsafe_allow_html=True
+        )
+        return
 
-            if file.name.endswith(".csv"):
-                uploaded_sheets = {"CSV": pd.read_csv(file, skiprows=2)}
-                selected_sheet = "CSV"
-            else:
-                uploaded_sheets = pd.read_excel(file, sheet_name=None, skiprows=2)
-                available_sheet_names = list(uploaded_sheets.keys())
-                selected_sheet = st.selectbox(
-                    "Tekshirish uchun listni tanlang",
-                    available_sheet_names,
-                    index=0
-                )
-                uploaded_sheets = {selected_sheet: uploaded_sheets[selected_sheet]}
+    try:
+        base_name = os.path.splitext(file.name)[0]
+        uploaded_sheets, selected_sheet = load_sheets(file)
+        prepared_sheets, total_students = prepare_sheets(uploaded_sheets)
 
-            prepared_sheets = []
-            total_students = 0
+        st.success(
+            f"Ma'lumotlar yuklandi. Tanlangan list: **{selected_sheet}**. "
+            f"Jami **{total_students}** ta o'quvchi aniqlandi."
+        )
 
-            for sheet_name, df in uploaded_sheets.items():
-                if df is None or df.empty:
-                    continue
-
-                df.columns = [str(c).replace("\n", " ").strip() for c in df.columns]
-                all_cols = df.columns.tolist()
-
-                if not all_cols:
-                    continue
-
-                fish_col = next(
-                    (c for c in all_cols if "ФИШ" in c.upper() or "F.I.SH" in c.upper()),
-                    all_cols[4] if len(all_cols) > 4 else all_cols[0]
-                )
-
-                course_cols = [
-                    c for c in all_cols
-                    if df[c].astype(str).str.contains("coursera.org", na=False).any()
-                ]
-
-                if not course_cols:
-                    continue
-
-                prepared_sheets.append({
-                    "sheet_name": str(sheet_name)[:31],
-                    "df": df,
-                    "fish_col": fish_col,
-                    "course_cols": course_cols
-                })
-
-                total_students += len(df)
-
-            st.success(
-                f"Ma'lumotlar yuklandi. Tanlangan list: {selected_sheet}. "
-                f"Jami {total_students} ta o'quvchi aniqlandi."
+        if not st.button("🚀 TEKSHIRISHNI BOSHLASH", type="primary", use_container_width=True):
+            st.markdown(
+                '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
+                unsafe_allow_html=True
             )
+            return
 
-            if st.button("🚀 TEKSHIRISHNI BOSHLASH", type="primary", use_container_width=True):
-                all_entries = []
-                unique_code_to_url = {}
-                unique_fallback_to_url = {}
+        all_entries, code_urls, fallback_urls = collect_entries(prepared_sheets)
 
-                for sheet_info in prepared_sheets:
-                    sheet_name = sheet_info["sheet_name"]
-                    df = sheet_info["df"]
-                    fish_col = sheet_info["fish_col"]
-                    course_cols = sheet_info["course_cols"]
+        if not all_entries:
+            st.warning("Tekshirish uchun hech qanday sertifikat link topilmadi.")
+            return
 
-                    for _, row in df.iterrows():
-                        for col in course_cols:
-                            raw_value = row[col]
-                            original_url = str(raw_value).strip()
+        session = get_pro_session()
+        code_results, url_results = run_verification(
+            session, code_urls, fallback_urls, threads, timeout
+        )
 
-                            if pd.notna(raw_value) and "http" in original_url:
-                                cert_code = extract_certificate_code(original_url)
+        final_data = build_final_data(all_entries, code_results, url_results)
+        res_df = pd.DataFrame(final_data)
 
-                                all_entries.append({
-                                    "sheet_name": sheet_name,
-                                    "name": row[fish_col],
-                                    "course": col,
-                                    "url": original_url,
-                                    "cert_code": cert_code
-                                })
+        show_metrics(res_df)
+        st.subheader("📋 Batafsil hisobot")
+        display_df = res_df.drop(columns=["__sheet_name__"])
+        st.dataframe(display_df.style.apply(row_style, axis=1), use_container_width=True)
+        export_excel(res_df, base_name)
 
-                                if cert_code:
-                                    if cert_code not in unique_code_to_url:
-                                        unique_code_to_url[cert_code] = original_url
-                                else:
-                                    if original_url not in unique_fallback_to_url:
-                                        unique_fallback_to_url[original_url] = original_url
+    except Exception as e:
+        st.error(f"Xatolik: {e}")
 
-                if not all_entries:
-                    st.warning("Tekshirish uchun hech qanday sertifikat link topilmadi.")
-                    return
+    st.markdown(
+        '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
+        unsafe_allow_html=True
+    )
 
-                results_cache = {}
-                fallback_results_cache = {}
-                session = get_pro_session()
-                progress = st.progress(0)
-                status_box = st.empty()
-
-                unique_items = list(unique_code_to_url.items())
-                fallback_items = list(unique_fallback_to_url.items())
-                all_unique_tasks = unique_items + fallback_items
-                total_unique = len(all_unique_tasks)
-
-                with ThreadPoolExecutor(max_workers=threads) as executor:
-                    future_to_key = {}
-
-                    for cert_code, original_url in unique_items:
-                        future = executor.submit(verify_link, session, original_url, timeout)
-                        future_to_key[future] = ("code", cert_code)
-
-                    for fallback_key, original_url in fallback_items:
-                        future = executor.submit(verify_link, session, original_url, timeout)
-                        future_to_key[future] = ("url", fallback_key)
-
-                    for i, future in enumerate(as_completed(future_to_key)):
-                        key_type, key_value = future_to_key[future]
-                        result = future.result()
-
-                        if key_type == "code":
-                            results_cache[key_value] = result
-                        else:
-                            fallback_results_cache[key_value] = result
-
-                        progress.progress((i + 1) / total_unique)
-                        status_box.text(f"Tekshirilmoqda: {i + 1}/{total_unique}")
-
-                final_data = []
-                seen_codes = set()
-                seen_urls_without_code = set()
-
-                for item in all_entries:
-                    cert_code = item["cert_code"]
-                    original_url = item["url"]
-                    excel_name = item["name"]
-
-                    if cert_code and cert_code in results_cache:
-                        status, code, reason, cert_date, cert_name = results_cache[cert_code]
-                    elif not cert_code and original_url in fallback_results_cache:
-                        status, code, reason, cert_date, cert_name = fallback_results_cache[original_url]
-                    else:
-                        status, code, reason, cert_date, cert_name = "XATO", "CodeError", "Sertifikat kodi aniqlanmadi", "", ""
-
-                    if status == "MAVJUD" and reason != "TAKRORLANUVCHI 🔄":
-                        name_match_status, name_match_detail = check_name_match(excel_name, cert_name)
-                    else:
-                        name_match_status = "TEKSHIRILMADI ⚠️"
-                        name_match_detail = "Sertifikat mavjud emas yoki takrorlanuvchi"
-
-                    if cert_code:
-                        if cert_code in seen_codes:
-                            display_reason = "TAKRORLANUVCHI 🔄"
-                            name_match_status = "TEKSHIRILMADI ⚠️"
-                            name_match_detail = "Takrorlanuvchi sertifikat"
-                        else:
-                            display_reason = reason
-                            seen_codes.add(cert_code)
-                    else:
-                        if original_url in seen_urls_without_code:
-                            display_reason = "TAKRORLANUVCHI 🔄"
-                            name_match_status = "TEKSHIRILMADI ⚠️"
-                            name_match_detail = "Takrorlanuvchi sertifikat"
-                        else:
-                            display_reason = reason
-                            seen_urls_without_code.add(original_url)
-
-                    final_data.append({
-                        "F.I.SH": excel_name,
-                        "Kurs yo'nalishi": item["course"],
-                        "Holati": status,
-                        "Natija": display_reason,
-                        "Ism Moslik": name_match_status,
-                        "Moslik Tafsiloti": name_match_detail,
-                        "Sertifikatdagi Ism": cert_name,
-                        "Havola": original_url,
-                        "Sertifikat kodi": cert_code,
-                        "Sertifikat olingan sana": cert_date,
-                        "__sheet_name__": item["sheet_name"]
-                    })
-
-                res_df = pd.DataFrame(final_data)
-
-                duplicate_count = int((res_df["Natija"] == "TAKRORLANUVCHI 🔄").sum())
-                confirmed_count = int(
-                    ((res_df["Holati"] == "MAVJUD") & (res_df["Natija"] != "TAKRORLANUVCHI 🔄")).sum()
-                )
-                error_count = int((res_df["Holati"] != "MAVJUD").sum())
-                name_match_count = int((res_df["Ism Moslik"] == "MOS ✅").sum())
-                name_partial_count = int((res_df["Ism Moslik"] == "QISMAN MOS ⚠️").sum())
-                name_mismatch_count = int((res_df["Ism Moslik"] == "MOS EMAS ❌").sum())
-
-                st.divider()
-                c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-                c1.metric("Jami tekshirildi", len(res_df))
-                c2.metric("Tasdiqlandi ✅", confirmed_count)
-                c3.metric("Xato/Mavjud emas ❌", error_count)
-                c4.metric("Takrorlanuvchi 🔄", duplicate_count)
-                c5.metric("Ism mos ✅", name_match_count)
-                c6.metric("Qisman mos ⚠️", name_partial_count)
-                c7.metric("Ism mos emas ❌", name_mismatch_count)
-
-                st.caption(
-                    f"Unikal sertifikat kodlari: {res_df['Sertifikat kodi'].replace('', pd.NA).nunique()} | "
-                    f"Takrorlar: {duplicate_count} | "
-                    f"Ism mos emas: {name_mismatch_count}"
-                )
-
-                st.subheader("📋 Batafsil hisobot")
-                display_df = res_df.drop(columns=["__sheet_name__"])
-
-                def row_style(row):
-                    styles = [""] * len(row)
-                    holat_idx = row.index.get_loc("Holati") if "Holati" in row.index else None
-                    moslik_idx = row.index.get_loc("Ism Moslik") if "Ism Moslik" in row.index else None
-
-                    if holat_idx is not None:
-                        if row["Holati"] == "MAVJUD":
-                            styles[holat_idx] = "background-color: #d4edda"
-                        elif row["Holati"] == "XATO":
-                            styles[holat_idx] = "background-color: #f8d7da"
-                        elif row["Holati"] == "MAVJUD EMAS":
-                            styles[holat_idx] = "background-color: #fff3cd"
-                        else:
-                            styles[holat_idx] = "background-color: #cce5ff"
-
-                    if moslik_idx is not None:
-                        if row["Ism Moslik"] == "MOS ✅":
-                            styles[moslik_idx] = "background-color: #d4edda"
-                        elif row["Ism Moslik"] == "QISMAN MOS ⚠️":
-                            styles[moslik_idx] = "background-color: #fff3cd"
-                        elif row["Ism Moslik"] == "MOS EMAS ❌":
-                            styles[moslik_idx] = "background-color: #f8d7da"
-                        else:
-                            styles[moslik_idx] = "background-color: #e2e3e5"
-
-                    return styles
-
-                st.dataframe(
-                    display_df.style.apply(row_style, axis=1),
-                    use_container_width=True
-                )
-
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    for sheet_name in res_df["__sheet_name__"].dropna().unique():
-                        sheet_df = res_df[res_df["__sheet_name__"] == sheet_name].drop(columns=["__sheet_name__"])
-                        if not sheet_df.empty:
-                            safe_sheet_name = str(sheet_name)[:31]
-                            sheet_df.to_excel(writer, index=False, sheet_name=safe_sheet_name)
-
-                download_filename = f"{base_name}_Verify.xlsx"
-                st.download_button(
-                    label="📥 Excelni yuklab olish",
-                    data=output.getvalue(),
-                    file_name=download_filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-
-        except Exception as e:
-            st.error(f"Xatolik: {e}")
-
-    st.markdown("""
-        <div class="footer">
-            Tuzuvchi: Azamat Madrimov | 2026
-        </div>
-        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
