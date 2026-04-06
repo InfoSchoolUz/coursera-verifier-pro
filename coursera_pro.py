@@ -729,7 +729,7 @@ def main():
         threads = st.slider("Parallel tekshiruvlar", 5, 50, 25)
         timeout = st.slider("Kutish vaqti (sekund)", 5, 30, 15)
 
-    st.subheader("Maktab o'quvchilari sertifikatlarini avtomatik tekshirish tizimi")
+    st.subheader("Maktab o'quvchilari sertifikatlarini avtomatik tekshirish yordamchi tizimi")
     file = st.file_uploader(
         "Excel (.xlsx) yoki CSV faylni yuklang",
         type=["xlsx", "csv"],
