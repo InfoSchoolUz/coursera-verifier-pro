@@ -2,15 +2,18 @@ import io
 import re
 import os
 import sys
+import json
 import difflib
+from html import unescape
+from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import pandas as pd
 import requests
 import streamlit as st
 from bs4 import BeautifulSoup
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from urllib.parse import urlparse
 
 # ==========================================
 # 1. KONSTANTALAR
@@ -23,20 +26,17 @@ MONTHS_PATTERN = (
 )
 
 STOP_WORDS = frozenset({
-    "qizi", "qiz", "ogli", "gizi",
+    "qizi", "qiz", "ogli", "gizi", "ugli",
     "mr", "mrs", "ms", "dr", "student",
     "certificate", "completion", "completed", "course",
-    "coursera", "issued", "awarded", "earned", "verify"
+    "coursera", "issued", "awarded", "earned", "verify",
+    "specialization", "professional", "certification",
 })
 
 BAD_WORDS = frozenset({
     "completion", "certificate", "course", "coursera",
-    "google", "meta", "ibm", "scrimba", "openai", "build"
-})
-
-SKIP_URL_PARTS = frozenset({
-    "account", "accomplishments", "certificates",
-    "certificate", "verify", "share"
+    "google", "meta", "ibm", "scrimba", "openai", "build",
+    "specialization", "professional", "certification", "issued",
 })
 
 CYRILLIC_MAP = {
@@ -68,7 +68,56 @@ CSS_SELECTORS = [
     ".cert-name",
     "[class*='certificateName']",
     "[class*='recipient']",
+    "[class*='Recipient']",
+    "[class*='learner']",
+    "[class*='Learner']",
+    "[itemprop='name']",
+    "meta[property='og:title']",
+    "meta[name='twitter:title']",
 ]
+
+DIRECT_NAME_PATTERNS = [
+    rf"Completed by\s+(.+?)(?=\s+(?:{MONTHS_PATTERN})\b)",
+    r"Completed by\s+(.+?)(?=\s+\d+\s+hours?)",
+    r"Completed by\s+(.+?)(?=\s+Coursera\b)",
+    r"Completed by\s+(.+?)(?=\s+certifies\b)",
+    r"Completed by\s+(.+?)(?=\s+has\s+successfully\s+completed\b)",
+    rf"(?:awarded to|issued to|earned by|completed by)\s+(.+?)(?=\s+(?:{MONTHS_PATTERN}|\d+\s+hours?|Coursera|Certificate))",
+    r"This certifies that\s+(.+?)(?=\s+has\s+successfully\s+completed)",
+    r"certifies that\s+(.+?)(?=\s+completed)",
+]
+
+FALLBACK_NAME_PATTERNS = [
+    r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+has\s+(?:successfully\s+)?completed",
+    r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+earned\s+this\s+certificate",
+    r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+completed\s+by",
+]
+
+SCRIPT_NAME_PATTERNS = [
+    r'"fullName"\s*:\s*"([^"\\]{2,120})"',
+    r'"name"\s*:\s*"([^"\\]{2,120})"',
+    r'"learnerName"\s*:\s*"([^"\\]{2,120})"',
+    r'"recipientName"\s*:\s*"([^"\\]{2,120})"',
+    r'"userName"\s*:\s*"([^"\\]{2,120})"',
+    r'"givenName"\s*:\s*"([^"\\]{2,60}(?:\s+[^"\\]{2,60}){1,4})"',
+    r'"display_name"\s*:\s*"([^"\\]{2,120})"',
+    r'"certificateRecipient"\s*:\s*\{.*?"name"\s*:\s*"([^"\\]{2,120})"',
+    r'"recipient"\s*:\s*\{.*?"name"\s*:\s*"([^"\\]{2,120})"',
+    r'"profileName"\s*:\s*"([^"\\]{2,120})"',
+    r'"creator"\s*:\s*\{.*?"name"\s*:\s*"([^"\\]{2,120})"',
+]
+
+_MONTH_RE = re.compile(MONTHS_PATTERN, re.IGNORECASE)
+_HOURS_RE = re.compile(r"\b\d+\s+hours?.*$", re.IGNORECASE)
+_CERT_RE = re.compile(r"\b(Coursera|Certificate|Completion|Course|Verify|Professional Certificate|Specialization).*$", re.IGNORECASE)
+
+_VALID_PATHS = frozenset({
+    "/share/",
+    "/verify/",
+    "/accomplishments/",
+    "/account/accomplishments/certificate/",
+    "/account/accomplishments/certificates/",
+})
 
 # ==========================================
 # 2. SAHIFA SOZLAMALARI
@@ -137,77 +186,15 @@ def show_sample_download_section():
     else:
         st.error("Namuna fayl topilmadi ❌")
 
-# ==========================================
-# 4. SERTIFIKAT KODI AJRATISH
-# ==========================================
-def extract_certificate_code(url) -> str:
-    if pd.isna(url):
-        return ""
-    url = str(url).strip()
-    if not url.startswith("http"):
-        return ""
-    try:
-        parts = urlparse(url).path.strip("/").lower().split("/")
-
-        if len(parts) >= 2 and parts[0] == "share":
-            return parts[1].strip().lower()
-
-        if "verify" in parts:
-            idx = parts.index("verify")
-            if idx + 1 < len(parts):
-                return parts[idx + 1].strip().lower()
-
-        if "accomplishments" in parts:
-            for part in reversed(parts):
-                part = part.strip().lower()
-                if part and part not in SKIP_URL_PARTS:
-                    return part
-
-        m = re.search(r"(?:share|verify)/([^/?#]+)", url, re.IGNORECASE)
-        if m:
-            return m.group(1).strip().lower()
-
-    except Exception:
-        pass
-    return ""
-
-# ==========================================
-# 5. SERTIFIKAT SANASI AJRATISH
-# ==========================================
-def extract_certificate_date(html: str) -> str:
-    if not html:
-        return ""
-    try:
-        soup = BeautifulSoup(html, "html.parser")
-        text = soup.get_text(" ", strip=True)
-
-        for pattern in DATE_PATTERNS:
-            m = re.search(pattern, text, re.IGNORECASE)
-            if m:
-                return m.group(0)
-
-        for script in soup.find_all("script"):
-            script_text = script.get_text(" ", strip=True)
-            for pattern in DATE_PATTERNS:
-                m = re.search(pattern, script_text, re.IGNORECASE)
-                if m:
-                    return m.group(0)
-
-    except Exception:
-        pass
-    return ""
-
-# ==========================================
-# 6. ISM NORMALIZATSIYASI VA MOSLIK
-# ==========================================
-def transliterate_cyrillic_to_latin(text: str) -> str:
-    return "".join(CYRILLIC_MAP.get(ch, ch) for ch in text)
-
 
 def standardize_apostrophes(text: str) -> str:
-    for ch in ("'", "'", "`", "ʻ", "ʼ", "ʹ", "´"):
+    for ch in ("'", "ʼ", "ʻ", "`", "ʹ", "´", "’"):
         text = text.replace(ch, "'")
     return text
+
+
+def transliterate_cyrillic_to_latin(text: str) -> str:
+    return "".join(CYRILLIC_MAP.get(ch, ch) for ch in text)
 
 
 def simplify_token(token: str) -> str:
@@ -215,6 +202,7 @@ def simplify_token(token: str) -> str:
     for old, new in (
         ("'", ""), ("yo", "io"), ("yu", "iu"),
         ("ya", "ia"), ("ts", "s"), ("iy", "i"), ("yy", "y"),
+        ("kh", "x"), ("ck", "k"), ("ph", "f")
     ):
         token = token.replace(old, new)
     return re.sub(r"[^a-z0-9-]", "", token)
@@ -246,17 +234,12 @@ def token_similarity(a: str, b: str) -> float:
     return difflib.SequenceMatcher(None, a, b).ratio()
 
 
-def build_token_matches(
-    excel_tokens: list[str],
-    cert_tokens: list[str],
-    threshold: float = 0.84
-) -> list[tuple[str, str, float]]:
+def build_token_matches(excel_tokens: list[str], cert_tokens: list[str], threshold: float = 0.84) -> list[tuple[str, str, float]]:
     matches = []
     used_cert: set[int] = set()
 
     for et in excel_tokens:
         best_idx, best_score, best_token = None, 0.0, None
-
         for idx, ct in enumerate(cert_tokens):
             if idx in used_cert:
                 continue
@@ -265,7 +248,6 @@ def build_token_matches(
                 score = max(score, 0.90)
             if score > best_score:
                 best_score, best_idx, best_token = score, idx, ct
-
         if best_idx is not None and best_score >= threshold:
             used_cert.add(best_idx)
             matches.append((et, best_token, best_score))
@@ -329,150 +311,333 @@ def check_name_match(excel_name: str, cert_name: str) -> tuple[str, str]:
 
     return "MOS EMAS ❌", f"Excel: '{excel_name}' | Sertifikat: '{cert_name}'"
 
+
 # ==========================================
-# 7. SAHIFADAN ISM AJRATISH
+# 4. URL / KOD AJRATISH
 # ==========================================
-_MONTH_RE = re.compile(MONTHS_PATTERN, re.IGNORECASE)
-_HOURS_RE = re.compile(r"\b\d+\s+hours?.*$", re.IGNORECASE)
-_CERT_RE = re.compile(r"\b(Coursera|Certificate|Completion|Course|Verify).*$", re.IGNORECASE)
-
-DIRECT_NAME_PATTERNS = [
-    rf"Completed by\s+(.+?)(?=\s+(?:{MONTHS_PATTERN})\b)",
-    r"Completed by\s+(.+?)(?=\s+\d+\s+hours?)",
-    r"Completed by\s+(.+?)(?=\s+Coursera\b)",
-    r"Completed by\s+(.+?)(?=\s+certifies\b)",
-    r"Completed by\s+(.+?)(?=\s+has\s+successfully\s+completed\b)",
-    rf"(?:awarded to|issued to|earned by|completed by)\s+(.+?)(?=\s+(?:{MONTHS_PATTERN}|\d+\s+hours?|Coursera|Certificate))",
-]
-
-FALLBACK_NAME_PATTERNS = [
-    r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+has\s+(?:successfully\s+)?completed",
-    r"([A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+(?:\s+[A-ZÀ-ÿА-ЯЁЎҚҒҲ][A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ'`\-]+){1,5})\s+earned\s+this\s+certificate",
-]
-
-
-def clean_candidate_name(candidate: str) -> str:
-    if not candidate:
+def extract_certificate_code(url) -> str:
+    if pd.isna(url):
         return ""
-    candidate = re.sub(r"\s+", " ", candidate).strip()
-    candidate = _MONTH_RE.sub("", candidate)
-    candidate = _HOURS_RE.sub("", candidate)
-    candidate = _CERT_RE.sub("", candidate)
-    candidate = re.sub(r"\s+", " ", candidate).strip()
 
-    words = candidate.split()
-    if not (2 <= len(words) <= 6):
+    url = str(url).strip()
+    if not url.startswith("http"):
         return ""
-    if any(w.lower() in BAD_WORDS for w in words):
-        return ""
-    return candidate
 
-
-def extract_name_from_page(html: str) -> str:
-    if not html:
-        return ""
     try:
-        soup = BeautifulSoup(html, "html.parser")
-        full_text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True))
+        parsed = urlparse(url)
+        path = parsed.path.strip("/")
+        path_parts = [part.strip() for part in path.split("/") if part.strip()]
+        path_parts_lower = [part.lower() for part in path_parts]
 
-        for pattern in DIRECT_NAME_PATTERNS:
-            m = re.search(pattern, full_text, re.IGNORECASE)
-            if m:
-                name = clean_candidate_name(m.group(1))
-                if name:
-                    return name
+        if len(path_parts) >= 2 and path_parts_lower[0] == "share":
+            return path_parts[1].strip().lower()
 
-        for tag, attr in (
-            (soup.find("meta", property="og:title"), "content"),
-            (soup.find("title"), None),
-        ):
-            if tag:
-                text = tag.get(attr) if attr else getattr(tag, "string", None)
-                if text:
-                    m = re.match(
-                        r"^(.+?)(?:'s)?\s+(?:Certificate|Certification|Course)",
-                        str(text).strip(), re.IGNORECASE
-                    )
-                    if m:
-                        name = clean_candidate_name(m.group(1))
-                        if name:
-                            return name
+        if len(path_parts) >= 4 and path_parts_lower[:3] == ["account", "accomplishments", "certificate"]:
+            return path_parts[3].strip().lower()
 
-        for selector in CSS_SELECTORS:
-            el = soup.select_one(selector)
-            if el:
-                name = clean_candidate_name(el.get_text(strip=True))
-                if name:
-                    return name
+        if len(path_parts) >= 4 and path_parts_lower[:3] == ["account", "accomplishments", "certificates"]:
+            return path_parts[3].strip().lower()
 
-        for pattern in FALLBACK_NAME_PATTERNS:
-            m = re.search(pattern, full_text, re.IGNORECASE)
-            if m:
-                name = clean_candidate_name(m.group(1))
-                if name:
-                    return name
+        cert_markers = [
+            ("certificate", False),
+            ("certificates", False),
+            ("verify", False),
+            ("accomplishments", True),
+        ]
+
+        for marker, skip_next in cert_markers:
+            if marker in path_parts_lower:
+                idx = path_parts_lower.index(marker)
+                candidate_idx = idx + 2 if skip_next else idx + 1
+                if candidate_idx < len(path_parts):
+                    return path_parts[candidate_idx].strip().lower()
+
+        m = re.search(r"(?:share|verify|certificate|certificates)/([^/?#]+)", url, re.IGNORECASE)
+        if m:
+            return m.group(1).strip().lower()
+
+        m2 = re.search(r"accomplishments/(?:certificate|certificates)/([^/?#]+)", url, re.IGNORECASE)
+        if m2:
+            return m2.group(1).strip().lower()
 
     except Exception:
         pass
     return ""
 
+
+def extract_canonical_certificate_code(url: str) -> str:
+    return extract_certificate_code(url) if url else ""
+
+
 # ==========================================
-# 8. NETWORK SESSIYASI
+# 5. SERTIFIKAT SANASI AJRATISH
+# ==========================================
+def extract_certificate_date(html: str) -> str:
+    if not html:
+        return ""
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        text = soup.get_text(" ", strip=True)
+
+        for pattern in DATE_PATTERNS:
+            m = re.search(pattern, text, re.IGNORECASE)
+            if m:
+                return m.group(0)
+
+        for script in soup.find_all("script"):
+            script_text = script.get_text(" ", strip=True)
+            for pattern in DATE_PATTERNS:
+                m = re.search(pattern, script_text, re.IGNORECASE)
+                if m:
+                    return m.group(0)
+    except Exception:
+        pass
+    return ""
+
+
+# ==========================================
+# 6. ISM AJRATISH
+# ==========================================
+def clean_candidate_name(candidate: str) -> str:
+    if not candidate:
+        return ""
+
+    candidate = unescape(candidate)
+    candidate = candidate.replace("\\u002F", "/")
+    candidate = re.sub(r"\\u[0-9a-fA-F]{4}", " ", candidate)
+    candidate = re.sub(r"<[^>]+>", " ", candidate)
+    candidate = re.sub(r"\s+", " ", candidate).strip(" -|,;:\n\t")
+    candidate = _MONTH_RE.sub("", candidate)
+    candidate = _HOURS_RE.sub("", candidate)
+    candidate = _CERT_RE.sub("", candidate)
+    candidate = re.sub(r"\s+", " ", candidate).strip(" -|,;:\n\t")
+
+    words = candidate.split()
+    if not (2 <= len(words) <= 6):
+        return ""
+
+    lower_words = [w.lower() for w in words]
+    if any(w in BAD_WORDS for w in lower_words):
+        return ""
+
+    # Hech bo'lmasa 2 ta so'zda harf bo'lsin
+    letter_words = sum(bool(re.search(r"[A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ]", w)) for w in words)
+    if letter_words < 2:
+        return ""
+
+    return candidate
+
+
+def score_candidate_name(name: str) -> int:
+    score = 0
+    words = name.split()
+    if 2 <= len(words) <= 4:
+        score += 5
+    if 2 <= len(words) <= 6:
+        score += 3
+    if all(len(w) > 1 for w in words):
+        score += 2
+    if all(re.search(r"[A-Za-zÀ-ÿА-Яа-яЁёЎўҚқҒғҲҳ]", w) for w in words):
+        score += 2
+    if not any(w.lower() in BAD_WORDS for w in words):
+        score += 3
+    if any(w[0].isupper() for w in words if w):
+        score += 2
+    return score
+
+
+def extract_name_candidates_from_json(obj, out: list[str]):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            k_low = str(k).lower()
+            if k_low in {
+                "name", "fullname", "learnername", "recipientname",
+                "username", "profilename", "display_name", "displayname"
+            } and isinstance(v, str):
+                cleaned = clean_candidate_name(v)
+                if cleaned:
+                    out.append(cleaned)
+            extract_name_candidates_from_json(v, out)
+    elif isinstance(obj, list):
+        for item in obj:
+            extract_name_candidates_from_json(item, out)
+
+
+def pick_best_name(candidates: list[str]) -> str:
+    if not candidates:
+        return ""
+    uniq = []
+    seen = set()
+    for c in candidates:
+        key = c.lower().strip()
+        if key not in seen:
+            seen.add(key)
+            uniq.append(c)
+    uniq.sort(key=lambda x: score_candidate_name(x), reverse=True)
+    return uniq[0]
+
+
+def extract_name_from_page(html: str) -> str:
+    if not html:
+        return ""
+
+    candidates: list[str] = []
+
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        raw_text = soup.get_text(" ", strip=True)
+        full_text = re.sub(r"\s+", " ", raw_text)
+
+        # 1) To'g'ridan-to'g'ri matn regex
+        for pattern in DIRECT_NAME_PATTERNS + FALLBACK_NAME_PATTERNS:
+            for m in re.finditer(pattern, full_text, re.IGNORECASE):
+                cleaned = clean_candidate_name(m.group(1))
+                if cleaned:
+                    candidates.append(cleaned)
+
+        # 2) Meta / title
+        meta_tags = [
+            soup.find("meta", property="og:description"),
+            soup.find("meta", attrs={"name": "description"}),
+            soup.find("meta", property="og:title"),
+            soup.find("meta", attrs={"name": "twitter:title"}),
+            soup.find("title"),
+        ]
+        for tag in meta_tags:
+            if not tag:
+                continue
+            text = tag.get("content") if getattr(tag, "name", "") == "meta" else getattr(tag, "string", None)
+            if not text:
+                continue
+            text = str(text).strip()
+            for pattern in DIRECT_NAME_PATTERNS + FALLBACK_NAME_PATTERNS:
+                for m in re.finditer(pattern, text, re.IGNORECASE):
+                    cleaned = clean_candidate_name(m.group(1))
+                    if cleaned:
+                        candidates.append(cleaned)
+            m = re.match(r"^(.+?)(?:'s)?\s+(?:Certificate|Certification|Course|Specialization)", text, re.IGNORECASE)
+            if m:
+                cleaned = clean_candidate_name(m.group(1))
+                if cleaned:
+                    candidates.append(cleaned)
+
+        # 3) Selectorlar
+        for selector in CSS_SELECTORS:
+            for el in soup.select(selector):
+                if el.name == "meta":
+                    text = el.get("content", "")
+                else:
+                    text = el.get_text(" ", strip=True)
+                cleaned = clean_candidate_name(text)
+                if cleaned:
+                    candidates.append(cleaned)
+
+        # 4) Scriptlardan regex va JSON parse
+        for script in soup.find_all("script"):
+            script_text = script.string or script.get_text(" ", strip=True)
+            if not script_text:
+                continue
+
+            script_text = unescape(script_text)
+            script_text = script_text.replace("\\u002F", "/")
+            script_text = re.sub(r"\s+", " ", script_text)
+
+            for pattern in SCRIPT_NAME_PATTERNS + DIRECT_NAME_PATTERNS + FALLBACK_NAME_PATTERNS:
+                for m in re.finditer(pattern, script_text, re.IGNORECASE):
+                    cleaned = clean_candidate_name(m.group(1))
+                    if cleaned:
+                        candidates.append(cleaned)
+
+            stripped = script_text.strip()
+            if (stripped.startswith("{") and stripped.endswith("}")) or (stripped.startswith("[") and stripped.endswith("]")):
+                try:
+                    obj = json.loads(stripped)
+                    extract_name_candidates_from_json(obj, candidates)
+                except Exception:
+                    pass
+
+        # 5) HTML xom matndan ham yana bir urinish
+        html_compact = re.sub(r"\s+", " ", unescape(html))
+        for pattern in SCRIPT_NAME_PATTERNS:
+            for m in re.finditer(pattern, html_compact, re.IGNORECASE):
+                cleaned = clean_candidate_name(m.group(1))
+                if cleaned:
+                    candidates.append(cleaned)
+
+    except Exception:
+        return ""
+
+    return pick_best_name(candidates)
+
+
+# ==========================================
+# 7. NETWORK SESSIYASI
 # ==========================================
 @st.cache_resource
+
 def get_pro_session() -> requests.Session:
     session = requests.Session()
     retry = Retry(
         total=5,
         backoff_factor=1,
         status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"]
+        allowed_methods=["GET", "HEAD"]
     )
     adapter = HTTPAdapter(max_retries=retry, pool_connections=100, pool_maxsize=100)
     session.mount("https://", adapter)
+    session.mount("http://", adapter)
     session.headers.update({
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/122.0.0.0 Safari/537.36"
-        )
+        ),
+        "Accept-Language": "en-US,en;q=0.9,uz;q=0.8,ru;q=0.7",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
     })
     return session
 
-# ==========================================
-# 9. VERIFIKATSIYA
-# ==========================================
-_VALID_PATHS = frozenset({"/share/", "/verify/", "/accomplishments/"})
 
-
+# ==========================================
+# 8. VERIFIKATSIYA
+# ==========================================
 def verify_link(session: requests.Session, url, timeout: int) -> tuple:
     if pd.isna(url) or not str(url).startswith("http"):
-        return "MAVJUD EMAS", "-", "Havola topilmadi", "", ""
+        return "MAVJUD EMAS", "-", "Havola topilmadi", "", "", "", ""
 
     url = str(url).strip()
     try:
         resp = session.get(url, timeout=timeout, allow_redirects=True)
-        final_url = resp.url.lower()
-        is_valid = any(p in final_url for p in _VALID_PATHS)
+        final_url = resp.url.strip()
+        final_url_lower = final_url.lower()
+        is_valid = any(p in final_url_lower for p in _VALID_PATHS)
         html = resp.text if resp.status_code == 200 else ""
 
         cert_date = extract_certificate_date(html)
         cert_name = extract_name_from_page(html)
+        canonical_code = extract_canonical_certificate_code(final_url) or extract_certificate_code(url)
 
         if resp.status_code == 200 and is_valid:
-            return "MAVJUD", "200", "Tasdiqlandi ✅", cert_date, cert_name
-        if "login" in final_url or "signup" in final_url:
-            return "XATO", "Redirect", "Avtorizatsiya so'raldi (Xato link)", cert_date, cert_name
-        return "MAVJUD EMAS", str(resp.status_code), "Sertifikat sahifasi emas", cert_date, cert_name
+            reason = "Tasdiqlandi ✅"
+            if not cert_name:
+                reason = "Tasdiqlandi ✅ (ism topilmadi)"
+            return "MAVJUD", "200", reason, cert_date, cert_name, canonical_code, final_url
+
+        if "login" in final_url_lower or "signup" in final_url_lower:
+            return "XATO", "Redirect", "Avtorizatsiya so'raldi (Xato link)", cert_date, cert_name, canonical_code, final_url
+
+        return "MAVJUD EMAS", str(resp.status_code), "Sertifikat sahifasi emas", cert_date, cert_name, canonical_code, final_url
 
     except Exception:
-        return "XATO", "Timeout/Error", "Ulanish imkonsiz", "", ""
+        return "XATO", "Timeout/Error", "Ulanish imkonsiz", "", "", extract_certificate_code(url), ""
+
 
 # ==========================================
-# 10. FAYLNI O'QISH VA TAYYORLASH
+# 9. FAYLNI O'QISH VA TAYYORLASH
 # ==========================================
 def load_sheets(file) -> tuple[dict, str]:
-    """Fayl (xlsx yoki csv) dan listlarni o'qib qaytaradi."""
     if file.name.endswith(".csv"):
         return {"CSV": pd.read_csv(file, skiprows=2)}, "CSV"
 
@@ -483,7 +648,6 @@ def load_sheets(file) -> tuple[dict, str]:
 
 
 def prepare_sheets(uploaded_sheets: dict) -> tuple[list[dict], int]:
-    """Har bir listdan fish_col va course_cols ni aniqlab chiqadi."""
     prepared, total = [], 0
     for sheet_name, df in uploaded_sheets.items():
         if df is None or df.empty:
@@ -499,7 +663,7 @@ def prepare_sheets(uploaded_sheets: dict) -> tuple[list[dict], int]:
         )
         course_cols = [
             c for c in all_cols
-            if df[c].astype(str).str.contains("coursera.org", na=False).any()
+            if df[c].astype(str).str.contains(r"coursera\.org|coursera\.com", na=False, case=False).any()
         ]
         if not course_cols:
             continue
@@ -515,7 +679,6 @@ def prepare_sheets(uploaded_sheets: dict) -> tuple[list[dict], int]:
 
 
 def collect_entries(prepared_sheets: list[dict]) -> tuple[list[dict], dict, dict]:
-    """Barcha sertifikat yozuvlarini to'plab, unikal kodlarni ajratadi."""
     all_entries: list[dict] = []
     unique_code_to_url: dict[str, str] = {}
     unique_fallback_to_url: dict[str, str] = {}
@@ -525,7 +688,7 @@ def collect_entries(prepared_sheets: list[dict]) -> tuple[list[dict], dict, dict
             for col in info["course_cols"]:
                 raw = row[col]
                 url = str(raw).strip()
-                if pd.isna(raw) or "http" not in url:
+                if pd.isna(raw) or "http" not in url.lower():
                     continue
 
                 code = extract_certificate_code(url)
@@ -545,14 +708,7 @@ def collect_entries(prepared_sheets: list[dict]) -> tuple[list[dict], dict, dict
     return all_entries, unique_code_to_url, unique_fallback_to_url
 
 
-def run_verification(
-    session: requests.Session,
-    unique_code_to_url: dict,
-    unique_fallback_to_url: dict,
-    threads: int,
-    timeout: int,
-) -> tuple[dict, dict]:
-    """Parallel tekshiruvni amalga oshirib natijalar lug'atini qaytaradi."""
+def run_verification(session: requests.Session, unique_code_to_url: dict, unique_fallback_to_url: dict, threads: int, timeout: int) -> tuple[dict, dict]:
     code_results: dict[str, tuple] = {}
     url_results: dict[str, tuple] = {}
 
@@ -580,15 +736,9 @@ def run_verification(
     return code_results, url_results
 
 
-def build_final_data(
-    all_entries: list[dict],
-    code_results: dict,
-    url_results: dict,
-) -> list[dict]:
-    """Har bir yozuv uchun natija va ism-moslikni yig'adi."""
+def build_final_data(all_entries: list[dict], code_results: dict, url_results: dict) -> list[dict]:
     final_data = []
-    seen_codes: set[str] = set()
-    seen_urls: set[str] = set()
+    seen_keys: set[str] = set()
 
     for item in all_entries:
         code = item["cert_code"]
@@ -596,16 +746,16 @@ def build_final_data(
         excel_name = item["name"]
 
         if code and code in code_results:
-            status, http_code, reason, cert_date, cert_name = code_results[code]
+            status, http_code, reason, cert_date, cert_name, canonical_code, final_url = code_results[code]
         elif not code and url in url_results:
-            status, http_code, reason, cert_date, cert_name = url_results[url]
+            status, http_code, reason, cert_date, cert_name, canonical_code, final_url = url_results[url]
         else:
-            status, http_code, reason, cert_date, cert_name = (
-                "XATO", "CodeError", "Sertifikat kodi aniqlanmadi", "", ""
+            status, http_code, reason, cert_date, cert_name, canonical_code, final_url = (
+                "XATO", "CodeError", "Sertifikat kodi aniqlanmadi", "", "", "", ""
             )
 
-        # Takrorlanishni tekshirish
-        is_dup = (code and code in seen_codes) or (not code and url in seen_urls)
+        dedupe_key = canonical_code or code or url.lower().strip()
+        is_dup = dedupe_key in seen_keys
 
         if is_dup:
             display_reason = "TAKRORLANUVCHI 🔄"
@@ -613,10 +763,7 @@ def build_final_data(
             name_detail = "Takrorlanuvchi sertifikat"
         else:
             display_reason = reason
-            if code:
-                seen_codes.add(code)
-            else:
-                seen_urls.add(url)
+            seen_keys.add(dedupe_key)
 
             if status == "MAVJUD":
                 name_status, name_detail = check_name_match(excel_name, cert_name)
@@ -628,20 +775,24 @@ def build_final_data(
             "F.I.SH": excel_name,
             "Kurs yo'nalishi": item["course"],
             "Holati": status,
+            "HTTP kodi": http_code,
             "Natija": display_reason,
             "Ism Moslik": name_status,
             "Moslik Tafsiloti": name_detail,
             "Sertifikatdagi Ism": cert_name,
             "Havola": url,
+            "Yakuniy URL": final_url,
             "Sertifikat kodi": code,
+            "Kanonik kod": canonical_code,
             "Sertifikat olingan sana": cert_date,
             "__sheet_name__": item["sheet_name"],
         })
 
     return final_data
 
+
 # ==========================================
-# 11. NATIJALARNI KO'RSATISH
+# 10. NATIJALARNI KO'RSATISH
 # ==========================================
 def show_metrics(df: pd.DataFrame):
     dup = int((df["Natija"] == "TAKRORLANUVCHI 🔄").sum())
@@ -660,7 +811,7 @@ def show_metrics(df: pd.DataFrame):
         col.metric(label, val)
 
     st.caption(
-        f"Unikal sertifikat kodlari: {df['Sertifikat kodi'].replace('', pd.NA).nunique()} | "
+        f"Unikal sertifikat kodlari: {df['Kanonik kod'].replace('', pd.NA).nunique()} | "
         f"Takrorlar: {dup} | Ism mos emas: {mismatch}"
     )
 
@@ -670,23 +821,19 @@ def row_style(row):
     styles = [""] * n
     idx_map = {col: row.index.get_loc(col) for col in ("Holati", "Ism Moslik") if col in row.index}
 
-    STATUS_COLORS = {
+    status_colors = {
         "MAVJUD": "#d4edda", "XATO": "#f8d7da",
         "MAVJUD EMAS": "#fff3cd",
     }
-    MATCH_COLORS = {
+    match_colors = {
         "MOS ✅": "#d4edda", "QISMAN MOS ⚠️": "#fff3cd",
         "MOS EMAS ❌": "#f8d7da",
     }
 
     if "Holati" in idx_map:
-        styles[idx_map["Holati"]] = (
-            f"background-color: {STATUS_COLORS.get(row['Holati'], '#cce5ff')}"
-        )
+        styles[idx_map["Holati"]] = f"background-color: {status_colors.get(row['Holati'], '#cce5ff')}"
     if "Ism Moslik" in idx_map:
-        styles[idx_map["Ism Moslik"]] = (
-            f"background-color: {MATCH_COLORS.get(row['Ism Moslik'], '#e2e3e5')}"
-        )
+        styles[idx_map["Ism Moslik"]] = f"background-color: {match_colors.get(row['Ism Moslik'], '#e2e3e5')}"
     return styles
 
 
@@ -706,8 +853,9 @@ def export_excel(res_df: pd.DataFrame, base_name: str):
         use_container_width=True
     )
 
+
 # ==========================================
-# 12. ASOSIY ILOVA
+# 11. ASOSIY ILOVA
 # ==========================================
 def main():
     st.title("🎓 Coursera Certificate Verifier Pro")
@@ -744,10 +892,7 @@ def main():
     )
 
     if not file:
-        st.markdown(
-            '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>', unsafe_allow_html=True)
         return
 
     try:
@@ -761,22 +906,16 @@ def main():
         )
 
         if not st.button("🚀 TEKSHIRISHNI BOSHLASH", type="primary", use_container_width=True):
-            st.markdown(
-                '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
-                unsafe_allow_html=True
-            )
+            st.markdown('<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>', unsafe_allow_html=True)
             return
 
         all_entries, code_urls, fallback_urls = collect_entries(prepared_sheets)
-
         if not all_entries:
             st.warning("Tekshirish uchun hech qanday sertifikat link topilmadi.")
             return
 
         session = get_pro_session()
-        code_results, url_results = run_verification(
-            session, code_urls, fallback_urls, threads, timeout
-        )
+        code_results, url_results = run_verification(session, code_urls, fallback_urls, threads, timeout)
 
         final_data = build_final_data(all_entries, code_results, url_results)
         res_df = pd.DataFrame(final_data)
@@ -790,10 +929,7 @@ def main():
     except Exception as e:
         st.error(f"Xatolik: {e}")
 
-    st.markdown(
-        '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
