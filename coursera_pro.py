@@ -76,217 +76,23 @@ CSS_SELECTORS = [
 st.set_page_config(
     page_title="Coursera Certificate Verifier Pro",
     layout="wide",
-    page_icon="🛰️"
+    page_icon="🎓"
 )
 
 st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-    /* ── BASE ── */
-    html, body, [class*="css"] {
-        font-family: 'Share Tech Mono', monospace !important;
-        background-color: #060d18 !important;
-        color: #e8f4ff !important;
-    }
-
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background: #0a1628 !important;
-        border-right: 1px solid #1a3a5c !important;
-    }
-    section[data-testid="stSidebar"] * { color: #e8f4ff !important; }
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3 {
-        font-family: 'Orbitron', sans-serif !important;
-        color: #00d4ff !important;
-        letter-spacing: 2px;
-    }
-
-    /* Main area */
-    .main .block-container {
-        background: #060d18 !important;
-        padding-top: 24px;
-    }
-
-    /* Title */
-    h1 {
-        font-family: 'Orbitron', sans-serif !important;
-        color: #00d4ff !important;
-        letter-spacing: 4px !important;
-        text-transform: uppercase;
-        border-bottom: 1px solid #1a3a5c;
-        padding-bottom: 12px;
-    }
-    h2, h3 {
-        font-family: 'Orbitron', sans-serif !important;
-        color: #00d4ff !important;
-        letter-spacing: 2px !important;
-    }
-
-    /* Subheader */
-    .stMarkdown p { color: #4a7fa5; font-size: 13px; letter-spacing: 1px; }
-
-    /* Buttons */
-    .stButton > button {
-        font-family: 'Orbitron', sans-serif !important;
-        background: linear-gradient(135deg, #0a1628, #0d2040) !important;
-        color: #00d4ff !important;
-        border: 1px solid #00d4ff !important;
-        letter-spacing: 2px !important;
-        border-radius: 2px !important;
-        transition: all 0.2s;
-    }
-    .stButton > button:hover {
-        background: #00d4ff !important;
-        color: #060d18 !important;
-    }
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #ff6b2b, #cc4400) !important;
-        color: #fff !important;
-        border-color: #ff6b2b !important;
-        font-size: 15px !important;
-    }
-    .stButton > button[kind="primary"]:hover {
-        background: #ff6b2b !important;
-        box-shadow: 0 0 20px rgba(255,107,43,0.5) !important;
-    }
-
-    /* Download button */
-    .stDownloadButton > button {
-        font-family: 'Orbitron', sans-serif !important;
-        background: #0a1628 !important;
-        color: #39ff6e !important;
-        border: 1px solid #39ff6e !important;
-        letter-spacing: 2px !important;
-        border-radius: 2px !important;
-    }
-    .stDownloadButton > button:hover {
-        background: #39ff6e !important;
-        color: #060d18 !important;
-    }
-
-    /* Metrics */
-    [data-testid="metric-container"] {
-        background: #0a1628 !important;
-        border: 1px solid #1a3a5c !important;
-        border-left: 3px solid #00d4ff !important;
-        border-radius: 2px !important;
-        padding: 12px !important;
-    }
-    [data-testid="metric-container"] label {
-        font-family: 'Share Tech Mono', monospace !important;
-        color: #4a7fa5 !important;
-        font-size: 10px !important;
-        letter-spacing: 2px !important;
-    }
-    [data-testid="metric-container"] [data-testid="stMetricValue"] {
-        font-family: 'Orbitron', sans-serif !important;
-        color: #e8f4ff !important;
-        font-size: 24px !important;
-    }
-
-    /* Dataframe */
-    .stDataFrame {
-        border: 1px solid #1a3a5c !important;
-        border-radius: 2px !important;
-        background: #0a1628 !important;
-    }
-    .stDataFrame thead th {
-        background: #0d1e35 !important;
-        color: #00d4ff !important;
-        font-family: 'Orbitron', sans-serif !important;
-        font-size: 11px !important;
-        letter-spacing: 1px !important;
-    }
-
-    /* File uploader */
-    [data-testid="stFileUploader"] {
-        background: #0a1628 !important;
-        border: 1px dashed #1a3a5c !important;
-        border-radius: 2px !important;
-        padding: 16px !important;
-    }
-    [data-testid="stFileUploader"] * { color: #4a7fa5 !important; }
-
-    /* Selectbox */
-    .stSelectbox > div > div {
-        background: #0a1628 !important;
-        border: 1px solid #1a3a5c !important;
-        color: #e8f4ff !important;
-        border-radius: 2px !important;
-    }
-
-    /* Sliders */
-    .stSlider [data-baseweb="slider"] div[role="slider"] {
-        background: #00d4ff !important;
-    }
-    .stSlider label { color: #4a7fa5 !important; letter-spacing: 1px; }
-
-    /* Divider */
-    hr { border-color: #1a3a5c !important; }
-
-    /* Alerts */
-    .stSuccess {
-        background: rgba(57,255,110,0.08) !important;
-        border: 1px solid #39ff6e !important;
-        border-radius: 2px !important;
-        color: #39ff6e !important;
-    }
-    .stWarning {
-        background: rgba(255,215,0,0.08) !important;
-        border: 1px solid #ffd700 !important;
-        border-radius: 2px !important;
-        color: #ffd700 !important;
-    }
-    .stError {
-        background: rgba(255,59,59,0.08) !important;
-        border: 1px solid #ff3b3b !important;
-        border-radius: 2px !important;
-        color: #ff3b3b !important;
-    }
-
-    /* Progress bar */
-    .stProgress > div > div > div {
-        background: linear-gradient(90deg, #00d4ff, #39ff6e) !important;
-    }
-
-    /* Footer */
+    .reportview-container { background: #f0f2f6; }
+    .stDataFrame { border: 1px solid #e6e9ef; border-radius: 10px; }
     .footer {
         position: fixed; left: 0; bottom: 0; width: 100%;
-        background: #0a1628;
-        border-top: 1px solid #1a3a5c;
-        color: #4a7fa5;
+        background-color: #0e1117; color: white;
         text-align: center; padding: 10px;
-        font-family: 'Share Tech Mono', monospace;
-        font-size: 12px;
-        letter-spacing: 2px;
-        z-index: 1000;
+        font-weight: bold; z-index: 1000;
     }
-
-    /* Sample box */
     .sample-box {
-        padding: 14px; border-radius: 2px;
-        background: rgba(0,212,255,0.05);
-        border: 1px solid rgba(0,212,255,0.25);
-        border-left: 3px solid #00d4ff;
-        margin-bottom: 12px;
-        font-size: 12px;
-        letter-spacing: 1px;
-        color: #4a7fa5 !important;
-    }
-
-    /* Scanlines overlay */
-    .main::before {
-        content: '';
-        position: fixed; top: 0; left: 0;
-        width: 100%; height: 100%;
-        background: repeating-linear-gradient(
-            0deg, transparent, transparent 2px,
-            rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px
-        );
-        pointer-events: none;
-        z-index: 9999;
+        padding: 14px; border-radius: 14px;
+        background: linear-gradient(135deg, rgba(0,242,254,0.10), rgba(79,172,254,0.10));
+        border: 1px solid rgba(79,172,254,0.30); margin-bottom: 12px;
     }
     </style>
 """, unsafe_allow_html=True)
