@@ -76,23 +76,217 @@ CSS_SELECTORS = [
 st.set_page_config(
     page_title="Coursera Certificate Verifier Pro",
     layout="wide",
-    page_icon="🎓"
+    page_icon="🛰️"
 )
 
 st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-    .reportview-container { background: #f0f2f6; }
-    .stDataFrame { border: 1px solid #e6e9ef; border-radius: 10px; }
+    /* ── BASE ── */
+    html, body, [class*="css"] {
+        font-family: 'Share Tech Mono', monospace !important;
+        background-color: #060d18 !important;
+        color: #e8f4ff !important;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: #0a1628 !important;
+        border-right: 1px solid #1a3a5c !important;
+    }
+    section[data-testid="stSidebar"] * { color: #e8f4ff !important; }
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        font-family: 'Orbitron', sans-serif !important;
+        color: #00d4ff !important;
+        letter-spacing: 2px;
+    }
+
+    /* Main area */
+    .main .block-container {
+        background: #060d18 !important;
+        padding-top: 24px;
+    }
+
+    /* Title */
+    h1 {
+        font-family: 'Orbitron', sans-serif !important;
+        color: #00d4ff !important;
+        letter-spacing: 4px !important;
+        text-transform: uppercase;
+        border-bottom: 1px solid #1a3a5c;
+        padding-bottom: 12px;
+    }
+    h2, h3 {
+        font-family: 'Orbitron', sans-serif !important;
+        color: #00d4ff !important;
+        letter-spacing: 2px !important;
+    }
+
+    /* Subheader */
+    .stMarkdown p { color: #4a7fa5; font-size: 13px; letter-spacing: 1px; }
+
+    /* Buttons */
+    .stButton > button {
+        font-family: 'Orbitron', sans-serif !important;
+        background: linear-gradient(135deg, #0a1628, #0d2040) !important;
+        color: #00d4ff !important;
+        border: 1px solid #00d4ff !important;
+        letter-spacing: 2px !important;
+        border-radius: 2px !important;
+        transition: all 0.2s;
+    }
+    .stButton > button:hover {
+        background: #00d4ff !important;
+        color: #060d18 !important;
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #ff6b2b, #cc4400) !important;
+        color: #fff !important;
+        border-color: #ff6b2b !important;
+        font-size: 15px !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: #ff6b2b !important;
+        box-shadow: 0 0 20px rgba(255,107,43,0.5) !important;
+    }
+
+    /* Download button */
+    .stDownloadButton > button {
+        font-family: 'Orbitron', sans-serif !important;
+        background: #0a1628 !important;
+        color: #39ff6e !important;
+        border: 1px solid #39ff6e !important;
+        letter-spacing: 2px !important;
+        border-radius: 2px !important;
+    }
+    .stDownloadButton > button:hover {
+        background: #39ff6e !important;
+        color: #060d18 !important;
+    }
+
+    /* Metrics */
+    [data-testid="metric-container"] {
+        background: #0a1628 !important;
+        border: 1px solid #1a3a5c !important;
+        border-left: 3px solid #00d4ff !important;
+        border-radius: 2px !important;
+        padding: 12px !important;
+    }
+    [data-testid="metric-container"] label {
+        font-family: 'Share Tech Mono', monospace !important;
+        color: #4a7fa5 !important;
+        font-size: 10px !important;
+        letter-spacing: 2px !important;
+    }
+    [data-testid="metric-container"] [data-testid="stMetricValue"] {
+        font-family: 'Orbitron', sans-serif !important;
+        color: #e8f4ff !important;
+        font-size: 24px !important;
+    }
+
+    /* Dataframe */
+    .stDataFrame {
+        border: 1px solid #1a3a5c !important;
+        border-radius: 2px !important;
+        background: #0a1628 !important;
+    }
+    .stDataFrame thead th {
+        background: #0d1e35 !important;
+        color: #00d4ff !important;
+        font-family: 'Orbitron', sans-serif !important;
+        font-size: 11px !important;
+        letter-spacing: 1px !important;
+    }
+
+    /* File uploader */
+    [data-testid="stFileUploader"] {
+        background: #0a1628 !important;
+        border: 1px dashed #1a3a5c !important;
+        border-radius: 2px !important;
+        padding: 16px !important;
+    }
+    [data-testid="stFileUploader"] * { color: #4a7fa5 !important; }
+
+    /* Selectbox */
+    .stSelectbox > div > div {
+        background: #0a1628 !important;
+        border: 1px solid #1a3a5c !important;
+        color: #e8f4ff !important;
+        border-radius: 2px !important;
+    }
+
+    /* Sliders */
+    .stSlider [data-baseweb="slider"] div[role="slider"] {
+        background: #00d4ff !important;
+    }
+    .stSlider label { color: #4a7fa5 !important; letter-spacing: 1px; }
+
+    /* Divider */
+    hr { border-color: #1a3a5c !important; }
+
+    /* Alerts */
+    .stSuccess {
+        background: rgba(57,255,110,0.08) !important;
+        border: 1px solid #39ff6e !important;
+        border-radius: 2px !important;
+        color: #39ff6e !important;
+    }
+    .stWarning {
+        background: rgba(255,215,0,0.08) !important;
+        border: 1px solid #ffd700 !important;
+        border-radius: 2px !important;
+        color: #ffd700 !important;
+    }
+    .stError {
+        background: rgba(255,59,59,0.08) !important;
+        border: 1px solid #ff3b3b !important;
+        border-radius: 2px !important;
+        color: #ff3b3b !important;
+    }
+
+    /* Progress bar */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #00d4ff, #39ff6e) !important;
+    }
+
+    /* Footer */
     .footer {
         position: fixed; left: 0; bottom: 0; width: 100%;
-        background-color: #0e1117; color: white;
+        background: #0a1628;
+        border-top: 1px solid #1a3a5c;
+        color: #4a7fa5;
         text-align: center; padding: 10px;
-        font-weight: bold; z-index: 1000;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 12px;
+        letter-spacing: 2px;
+        z-index: 1000;
     }
+
+    /* Sample box */
     .sample-box {
-        padding: 14px; border-radius: 14px;
-        background: linear-gradient(135deg, rgba(0,242,254,0.10), rgba(79,172,254,0.10));
-        border: 1px solid rgba(79,172,254,0.30); margin-bottom: 12px;
+        padding: 14px; border-radius: 2px;
+        background: rgba(0,212,255,0.05);
+        border: 1px solid rgba(0,212,255,0.25);
+        border-left: 3px solid #00d4ff;
+        margin-bottom: 12px;
+        font-size: 12px;
+        letter-spacing: 1px;
+        color: #4a7fa5 !important;
+    }
+
+    /* Scanlines overlay */
+    .main::before {
+        content: '';
+        position: fixed; top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: repeating-linear-gradient(
+            0deg, transparent, transparent 2px,
+            rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px
+        );
+        pointer-events: none;
+        z-index: 9999;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -429,372 +623,4 @@ def get_pro_session() -> requests.Session:
         allowed_methods=["GET"]
     )
     adapter = HTTPAdapter(max_retries=retry, pool_connections=100, pool_maxsize=100)
-    session.mount("https://", adapter)
-    session.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/122.0.0.0 Safari/537.36"
-        )
-    })
-    return session
-
-# ==========================================
-# 9. VERIFIKATSIYA
-# ==========================================
-_VALID_PATHS = frozenset({"/share/", "/verify/", "/accomplishments/"})
-
-
-def verify_link(session: requests.Session, url, timeout: int) -> tuple:
-    if pd.isna(url) or not str(url).startswith("http"):
-        return "MAVJUD EMAS", "-", "Havola topilmadi", "", ""
-
-    url = str(url).strip()
-    try:
-        resp = session.get(url, timeout=timeout, allow_redirects=True)
-        final_url = resp.url.lower()
-        is_valid = any(p in final_url for p in _VALID_PATHS)
-        html = resp.text if resp.status_code == 200 else ""
-
-        cert_date = extract_certificate_date(html)
-        cert_name = extract_name_from_page(html)
-
-        if resp.status_code == 200 and is_valid:
-            return "MAVJUD", "200", "Tasdiqlandi ✅", cert_date, cert_name
-        if "login" in final_url or "signup" in final_url:
-            return "XATO", "Redirect", "Avtorizatsiya so'raldi (Xato link)", cert_date, cert_name
-        return "MAVJUD EMAS", str(resp.status_code), "Sertifikat sahifasi emas", cert_date, cert_name
-
-    except Exception:
-        return "XATO", "Timeout/Error", "Ulanish imkonsiz", "", ""
-
-# ==========================================
-# 10. FAYLNI O'QISH VA TAYYORLASH
-# ==========================================
-def load_sheets(file) -> tuple[dict, str]:
-    """Fayl (xlsx yoki csv) dan listlarni o'qib qaytaradi."""
-    if file.name.endswith(".csv"):
-        return {"CSV": pd.read_csv(file, skiprows=2)}, "CSV"
-
-    all_sheets = pd.read_excel(file, sheet_name=None, skiprows=2)
-    names = list(all_sheets.keys())
-    selected = st.selectbox("Tekshirish uchun listni tanlang", names, index=0)
-    return {selected: all_sheets[selected]}, selected
-
-
-def prepare_sheets(uploaded_sheets: dict) -> tuple[list[dict], int]:
-    """Har bir listdan fish_col va course_cols ni aniqlab chiqadi."""
-    prepared, total = [], 0
-    for sheet_name, df in uploaded_sheets.items():
-        if df is None or df.empty:
-            continue
-        df.columns = [str(c).replace("\n", " ").strip() for c in df.columns]
-        all_cols = df.columns.tolist()
-        if not all_cols:
-            continue
-
-        fish_col = next(
-            (c for c in all_cols if "ФИШ" in c.upper() or "F.I.SH" in c.upper()),
-            all_cols[4] if len(all_cols) > 4 else all_cols[0]
-        )
-        course_cols = [
-            c for c in all_cols
-            if df[c].astype(str).str.contains("coursera.org", na=False).any()
-        ]
-        if not course_cols:
-            continue
-
-        prepared.append({
-            "sheet_name": str(sheet_name)[:31],
-            "df": df,
-            "fish_col": fish_col,
-            "course_cols": course_cols,
-        })
-        total += len(df)
-    return prepared, total
-
-
-def collect_entries(prepared_sheets: list[dict]) -> tuple[list[dict], dict, dict]:
-    """Barcha sertifikat yozuvlarini to'plab, unikal kodlarni ajratadi."""
-    all_entries: list[dict] = []
-    unique_code_to_url: dict[str, str] = {}
-    unique_fallback_to_url: dict[str, str] = {}
-
-    for info in prepared_sheets:
-        for _, row in info["df"].iterrows():
-            for col in info["course_cols"]:
-                raw = row[col]
-                url = str(raw).strip()
-                if pd.isna(raw) or "http" not in url:
-                    continue
-
-                code = extract_certificate_code(url)
-                all_entries.append({
-                    "sheet_name": info["sheet_name"],
-                    "name": row[info["fish_col"]],
-                    "course": col,
-                    "url": url,
-                    "cert_code": code,
-                })
-
-                if code:
-                    unique_code_to_url.setdefault(code, url)
-                else:
-                    unique_fallback_to_url.setdefault(url, url)
-
-    return all_entries, unique_code_to_url, unique_fallback_to_url
-
-
-def run_verification(
-    session: requests.Session,
-    unique_code_to_url: dict,
-    unique_fallback_to_url: dict,
-    threads: int,
-    timeout: int,
-) -> tuple[dict, dict]:
-    """Parallel tekshiruvni amalga oshirib natijalar lug'atini qaytaradi."""
-    code_results: dict[str, tuple] = {}
-    url_results: dict[str, tuple] = {}
-
-    code_items = list(unique_code_to_url.items())
-    url_items = list(unique_fallback_to_url.items())
-    total = len(code_items) + len(url_items)
-
-    progress = st.progress(0)
-    status_box = st.empty()
-
-    with ThreadPoolExecutor(max_workers=threads) as executor:
-        future_map: dict = {}
-        for code, url in code_items:
-            future_map[executor.submit(verify_link, session, url, timeout)] = ("code", code)
-        for key, url in url_items:
-            future_map[executor.submit(verify_link, session, url, timeout)] = ("url", key)
-
-        for i, future in enumerate(as_completed(future_map), 1):
-            kind, key = future_map[future]
-            result = future.result()
-            (code_results if kind == "code" else url_results)[key] = result
-            progress.progress(i / total)
-            status_box.text(f"Tekshirilmoqda: {i}/{total}")
-
-    return code_results, url_results
-
-
-def build_final_data(
-    all_entries: list[dict],
-    code_results: dict,
-    url_results: dict,
-) -> list[dict]:
-    """Har bir yozuv uchun natija va ism-moslikni yig'adi."""
-    final_data = []
-    seen_codes: set[str] = set()
-    seen_urls: set[str] = set()
-
-    for item in all_entries:
-        code = item["cert_code"]
-        url = item["url"]
-        excel_name = item["name"]
-
-        if code and code in code_results:
-            status, http_code, reason, cert_date, cert_name = code_results[code]
-        elif not code and url in url_results:
-            status, http_code, reason, cert_date, cert_name = url_results[url]
-        else:
-            status, http_code, reason, cert_date, cert_name = (
-                "XATO", "CodeError", "Sertifikat kodi aniqlanmadi", "", ""
-            )
-
-        # Takrorlanishni tekshirish
-        is_dup = (code and code in seen_codes) or (not code and url in seen_urls)
-
-        if is_dup:
-            display_reason = "TAKRORLANUVCHI 🔄"
-            name_status = "TEKSHIRILMADI ⚠️"
-            name_detail = "Takrorlanuvchi sertifikat"
-        else:
-            display_reason = reason
-            if code:
-                seen_codes.add(code)
-            else:
-                seen_urls.add(url)
-
-            if status == "MAVJUD":
-                name_status, name_detail = check_name_match(excel_name, cert_name)
-            else:
-                name_status = "TEKSHIRILMADI ⚠️"
-                name_detail = "Sertifikat mavjud emas"
-
-        final_data.append({
-            "F.I.SH": excel_name,
-            "Kurs yo'nalishi": item["course"],
-            "Holati": status,
-            "Natija": display_reason,
-            "Ism Moslik": name_status,
-            "Moslik Tafsiloti": name_detail,
-            "Sertifikatdagi Ism": cert_name,
-            "Havola": url,
-            "Sertifikat kodi": code,
-            "Sertifikat olingan sana": cert_date,
-            "__sheet_name__": item["sheet_name"],
-        })
-
-    return final_data
-
-# ==========================================
-# 11. NATIJALARNI KO'RSATISH
-# ==========================================
-def show_metrics(df: pd.DataFrame):
-    dup = int((df["Natija"] == "TAKRORLANUVCHI 🔄").sum())
-    confirmed = int(((df["Holati"] == "MAVJUD") & (df["Natija"] != "TAKRORLANUVCHI 🔄")).sum())
-    errors = int((df["Holati"] != "MAVJUD").sum())
-    mos = int((df["Ism Moslik"] == "MOS ✅").sum())
-    partial = int((df["Ism Moslik"] == "QISMAN MOS ⚠️").sum())
-    mismatch = int((df["Ism Moslik"] == "MOS EMAS ❌").sum())
-
-    st.divider()
-    cols = st.columns(7)
-    for col, label, val in zip(cols, [
-        "Jami tekshirildi", "Tasdiqlandi ✅", "Xato/Mavjud emas ❌",
-        "Takrorlanuvchi 🔄", "Ism mos ✅", "Qisman mos ⚠️", "Ism mos emas ❌"
-    ], [len(df), confirmed, errors, dup, mos, partial, mismatch]):
-        col.metric(label, val)
-
-    st.caption(
-        f"Unikal sertifikat kodlari: {df['Sertifikat kodi'].replace('', pd.NA).nunique()} | "
-        f"Takrorlar: {dup} | Ism mos emas: {mismatch}"
-    )
-
-
-def row_style(row):
-    n = len(row)
-    styles = [""] * n
-    idx_map = {col: row.index.get_loc(col) for col in ("Holati", "Ism Moslik") if col in row.index}
-
-    STATUS_COLORS = {
-        "MAVJUD": "#d4edda", "XATO": "#f8d7da",
-        "MAVJUD EMAS": "#fff3cd",
-    }
-    MATCH_COLORS = {
-        "MOS ✅": "#d4edda", "QISMAN MOS ⚠️": "#fff3cd",
-        "MOS EMAS ❌": "#f8d7da",
-    }
-
-    if "Holati" in idx_map:
-        styles[idx_map["Holati"]] = (
-            f"background-color: {STATUS_COLORS.get(row['Holati'], '#cce5ff')}"
-        )
-    if "Ism Moslik" in idx_map:
-        styles[idx_map["Ism Moslik"]] = (
-            f"background-color: {MATCH_COLORS.get(row['Ism Moslik'], '#e2e3e5')}"
-        )
-    return styles
-
-
-def export_excel(res_df: pd.DataFrame, base_name: str):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        for sheet_name in res_df["__sheet_name__"].dropna().unique():
-            sheet_df = res_df[res_df["__sheet_name__"] == sheet_name].drop(columns=["__sheet_name__"])
-            if not sheet_df.empty:
-                sheet_df.to_excel(writer, index=False, sheet_name=str(sheet_name)[:31])
-
-    st.download_button(
-        label="📥 Excelni yuklab olish",
-        data=output.getvalue(),
-        file_name=f"{base_name}_Verify.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
-
-# ==========================================
-# 12. ASOSIY ILOVA
-# ==========================================
-def main():
-    st.title("🎓 Coursera Certificate Verifier Pro")
-
-    with st.sidebar:
-        show_sample_download_section()
-        st.markdown("---")
-        st.markdown("### 📬 Muallifga murojaat")
-        st.markdown("""
-        <div style="line-height: 2;">
-        <img src="https://img.icons8.com/color/20/gmail-new.png"/>
-        <a href="mailto:azamat3533141@gmail.com"> azamat3533141@gmail.com</a><br>
-        <img src="https://img.icons8.com/color/20/telegram-app.png"/>
-        <a href="https://t.me/futurex_azamat"> @futurex_azamat</a>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("---")
-        st.header("⚙️ Parametrlar")
-        threads = st.slider("Parallel tekshiruvlar", 5, 50, 25)
-        timeout = st.slider("Kutish vaqti (sekund)", 5, 30, 15)
-
-    st.subheader("Maktab o'quvchilari sertifikatlarini avtomatik tekshirish yordamchi tizimi")
-    file = st.file_uploader(
-        "Excel (.xlsx) yoki CSV faylni yuklang",
-        type=["xlsx", "csv"],
-        help=(
-            "Fayl quyidagi ustunlarga ega bo'lishi lozim:\n"
-            "• №\n• Tuman/Shahar\n• Maktab raqami\n• Sinf\n• F.I.SH\n"
-            "• Guvohnoma seriyasi va raqami\n• Tug'ilgan sana\n"
-            "• Sertifikat havolasi\n• Elektron pochta\n\n"
-            "⚠️ Ustun nomlari o'zgartirilsa yoki joyi almashsa, "
-            "tizim noto'g'ri ishlashi mumkin."
-        )
-    )
-
-    if not file:
-        st.markdown(
-            '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
-            unsafe_allow_html=True
-        )
-        return
-
-    try:
-        base_name = os.path.splitext(file.name)[0]
-        uploaded_sheets, selected_sheet = load_sheets(file)
-        prepared_sheets, total_students = prepare_sheets(uploaded_sheets)
-
-        st.success(
-            f"Ma'lumotlar yuklandi. Tanlangan list: **{selected_sheet}**. "
-            f"Jami **{total_students}** ta o'quvchi aniqlandi."
-        )
-
-        if not st.button("🚀 TEKSHIRISHNI BOSHLASH", type="primary", use_container_width=True):
-            st.markdown(
-                '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
-                unsafe_allow_html=True
-            )
-            return
-
-        all_entries, code_urls, fallback_urls = collect_entries(prepared_sheets)
-
-        if not all_entries:
-            st.warning("Tekshirish uchun hech qanday sertifikat link topilmadi.")
-            return
-
-        session = get_pro_session()
-        code_results, url_results = run_verification(
-            session, code_urls, fallback_urls, threads, timeout
-        )
-
-        final_data = build_final_data(all_entries, code_results, url_results)
-        res_df = pd.DataFrame(final_data)
-
-        show_metrics(res_df)
-        st.subheader("📋 Batafsil hisobot")
-        display_df = res_df.drop(columns=["__sheet_name__"])
-        st.dataframe(display_df.style.apply(row_style, axis=1), use_container_width=True)
-        export_excel(res_df, base_name)
-
-    except Exception as e:
-        st.error(f"Xatolik: {e}")
-
-    st.markdown(
-        '<div class="footer">Tuzuvchi: Azamat Madrimov | 2026</div>',
-        unsafe_allow_html=True
-    )
-
-
-if __name__ == "__main__":
-    main()
+    sessio
